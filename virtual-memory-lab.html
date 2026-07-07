@@ -1,0 +1,1457 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>虚拟内存可验证实验室 · Virtual Memory Lab</title>
+<meta name="description" content="交互式虚拟内存可视化学习工具：地址翻译、缺页中断、写时复制COW、页面置换算法、TLB Shootdown、EPT/NPT双层翻译，先预测再动手验证。">
+<meta name="author" content="ZhiYa">
+<meta name="keywords" content="虚拟内存,分页,页表,TLB,缺页,COW,写时复制,页面置换,LRU,时钟算法,Bélády异常,TLB Shootdown,EPT,NPT,可视化,学习工具">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
+<meta property="og:title" content="虚拟内存可验证实验室 · Virtual Memory Lab">
+<meta property="og:description" content="六大交互实验：地址翻译 / 缺页沙盘 / 写时复制 / 页面置换对决 / TLB Shootdown / 双层翻译。先预测·后操作·看结果·对原理。">
+<meta property="og:type" content="website">
+<meta property="og:image" content="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='630' fill='%230d1117'><rect width='1200' height='630'/><text x='600' y='280' text-anchor='middle' fill='%2358a6ff' font-size='72' font-family='system-ui'>📚 Virtual Memory Lab</text><text x='600' y='380' text-anchor='middle' fill='%238b949e' font-size='28' font-family='system-ui'>地址翻译 · 缺页 · COW · 页面置换 · TLB Shootdown · EPT/NPT</text></svg>">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="虚拟内存可验证实验室 · Virtual Memory Lab">
+<meta name="twitter:description" content="六种虚拟内存机制的交互式可验证实验">
+<meta name="theme-color" content="#0d1117">
+<style>
+  :root{
+    /* tree-lab 设计系统（深色 GitHub 风） */
+    --bg:#0d1117; --sf:#161b22; --sf2:#1c2333; --bd:#30363d;
+    --tx:#e6edf3; --tx2:#8b949e; --tx3:#8a919a;
+    --ac:#58a6ff; --ac2:#1f6feb; --gn:#3fb950; --rd:#cf222e; --yl:#d29922; --pp:#bc8cff; --or:#f0883e;
+    --r:8px;
+    /* —— 兼容旧变量名，全部重映射到深色主题，令既有规则自动换肤 —— */
+    --paper:var(--bg); --ink:var(--tx); --ink2:var(--tx2);
+    --wood:var(--ac2); --wood-d:var(--ac); --wood-l:var(--ac);
+    --gold:var(--yl); --gold-l:var(--or); --red:var(--rd); --green:var(--gn);
+    --blue:var(--ac); --purple:var(--pp);
+    --card:var(--sf); --line:var(--bd); --shadow:rgba(0,0,0,.5);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:'Segoe UI','PingFang SC','Microsoft YaHei',system-ui,sans-serif;color:var(--tx);
+    background:var(--bg);line-height:1.6;min-height:100vh}
+  ::selection{background:rgba(88,166,255,.3)}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px 60px}
+
+  /* 顶部导航 */
+  nav{position:sticky;top:0;z-index:100;background:var(--sf);
+    box-shadow:0 1px 0 var(--bd),0 3px 14px rgba(0,0,0,.4);border-bottom:1px solid var(--bd)}
+  nav .inner{max-width:1180px;margin:0 auto;display:flex;align-items:center;gap:6px;padding:8px 16px;flex-wrap:wrap}
+  nav .brand{font-weight:700;font-size:16px;margin-right:auto;letter-spacing:.5px;
+    background:linear-gradient(90deg,var(--ac),var(--pp));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  nav a{color:var(--tx2);text-decoration:none;font-size:13px;padding:7px 12px;border-radius:8px;transition:.15s;white-space:nowrap}
+  nav a:hover{background:var(--sf2);color:var(--tx)}
+  nav a.on{background:var(--ac2);color:#e6edf3;font-weight:600}
+
+  /* Hero */
+  header.hero{position:relative;overflow:hidden;background:radial-gradient(ellipse at 50% -10%,#152135,var(--bg) 70%);
+    color:var(--tx);padding:44px 20px 40px;text-align:center;border-bottom:1px solid var(--bd)}
+  .hero h1{font-size:clamp(22px,3.6vw,36px);letter-spacing:.5px;position:relative;font-weight:700;
+    background:linear-gradient(90deg,var(--ac),var(--pp));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  .hero .sub{margin-top:12px;font-size:clamp(13px,1.7vw,15.5px);color:var(--tx2);position:relative}
+  .hero .sub b{color:var(--ac)}
+  .hero .badge{display:inline-block;margin-top:16px;padding:6px 18px;border:1px solid var(--bd);border-radius:30px;
+    font-size:12.5px;background:var(--sf);color:var(--tx2);position:relative;letter-spacing:.5px}
+
+  section{margin-top:56px;scroll-margin-top:64px}
+  .sec-title{display:flex;align-items:center;gap:14px;margin-bottom:8px}
+  .sec-title .num{flex:0 0 auto;width:42px;height:42px;border-radius:50%;background:var(--wood);color:#e6edf3;
+    display:grid;place-items:center;font-weight:700;font-size:18px;box-shadow:0 3px 8px var(--shadow);border:2px solid var(--gold-l)}
+  .sec-title h2{font-size:clamp(19px,2.8vw,26px);letter-spacing:1px}
+  .sec-title p{color:var(--ink2);font-size:13px;margin-top:2px}
+
+  /* 可验证四步条 */
+  .flow4{display:flex;gap:8px;margin:16px 0 22px;flex-wrap:wrap}
+  .flow4 .step{flex:1;min-width:130px;background:#1c2333;border:1px solid var(--line);border-radius:10px;
+    padding:10px 12px;position:relative;box-shadow:0 2px 6px rgba(60,40,15,.08)}
+  .flow4 .step b{display:block;font-size:13px;color:var(--wood-d)}
+  .flow4 .step small{font-size:11.5px;color:var(--ink2)}
+  .flow4 .step:not(:last-child)::after{content:"→";position:absolute;right:-11px;top:50%;transform:translateY(-50%);
+    color:var(--gold);font-weight:700;z-index:2}
+
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;box-shadow:0 5px 16px var(--shadow)}
+  .row{display:grid;gap:18px}
+  @media(min-width:820px){.row.two{grid-template-columns:1fr 1fr}.row.lr{grid-template-columns:1.15fr .85fr}}
+
+  label.fld{font-size:12.5px;color:var(--ink2);display:block;margin-bottom:5px}
+  input[type=text]{width:100%;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:15px;padding:10px 12px;
+    border:1px solid var(--line);border-radius:8px;background:#1c2333;color:var(--ink)}
+  input:focus{outline:2px solid var(--gold)}
+  .btn{font-family:inherit;font-size:13.5px;padding:9px 16px;border:none;border-radius:9px;cursor:pointer;
+    background:var(--wood);color:#e6edf3;box-shadow:0 2px 6px var(--shadow);transition:.13s;font-weight:600}
+  .btn:hover{background:var(--ac)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn.sec{background:#2b3548;color:var(--wood-d)}
+  .btn.sec:hover{background:#2b3548}
+  .btn.gold{background:var(--gold)}
+  .btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+
+  .predict{background:linear-gradient(120deg,rgba(210,153,34,.10),rgba(210,153,34,.06));border-left:5px solid var(--gold);border-radius:10px;
+    padding:12px 15px;margin:12px 0}
+  .predict b{color:var(--red)}
+  .predict .opts{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .predict .opts button{font-family:inherit;font-size:12.5px;padding:6px 12px;border:1px solid var(--line);
+    border-radius:20px;background:#1c2333;cursor:pointer;color:var(--wood-d)}
+  .predict .opts button.picked{background:var(--wood);color:#e6edf3;border-color:var(--wood)}
+  .verdict{margin-top:10px;font-size:13px;font-weight:600;min-height:20px}
+  .verdict.ok{color:var(--green)}
+  .verdict.no{color:var(--red)}
+
+  .subhead{font-size:13.5px;font-weight:700;color:var(--wood-d);margin:18px 0 9px;display:flex;align-items:center;gap:7px}
+  .subhead::before{content:"❧";color:var(--gold);font-size:16px}
+
+  /* ---- 实验1 翻译流水线 ---- */
+  .pipe{display:flex;flex-direction:column;gap:0}
+  .stage{background:#1c2333;border:1px solid var(--line);border-radius:10px;padding:12px 14px;
+    opacity:.4;transition:.25s;position:relative}
+  .stage.done{opacity:1;border-color:var(--gold)}
+  .stage.cur{opacity:1;border:2px solid var(--red);box-shadow:0 3px 12px rgba(155,45,32,.2)}
+  .stage .connector{height:20px;display:flex;justify-content:center;align-items:center;color:var(--gold);font-size:16px}
+  .stage .st-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .stage .st-name{font-weight:700;font-size:14px;color:var(--wood-d)}
+  .stage .st-cost{font-family:ui-monospace,monospace;font-size:11.5px;background:#242d3f;padding:2px 9px;border-radius:12px;color:var(--red)}
+  .stage .st-detail{font-size:12.5px;color:var(--ink2);margin-top:6px;font-family:ui-monospace,monospace}
+  .stage .hl{color:var(--red);font-weight:700}
+  .va-parts{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:12px 0}
+  .va-part{background:#1c2333;border:1px solid var(--line);border-radius:8px;padding:7px 5px;text-align:center;transition:.2s}
+  .va-part.active{border:2px solid var(--red);background:#233047}
+  .va-part .t{font-size:10px;color:var(--ink2)}
+  .va-part .v{font-family:ui-monospace,monospace;font-size:13px;font-weight:700;margin-top:3px}
+  .result-box{margin-top:14px;background:linear-gradient(120deg,rgba(63,185,80,.10),rgba(63,185,80,.12));border:1px solid rgba(63,185,80,.4);
+    border-radius:10px;padding:14px;display:none}
+  .result-box.show{display:block}
+  .result-box .pa{font-family:ui-monospace,monospace;font-size:22px;font-weight:700;color:var(--green)}
+  .toggle-row{display:flex;gap:14px;align-items:center;font-size:12.5px;color:var(--ink2);margin-top:10px;flex-wrap:wrap}
+  .switch{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+  .switch input{width:16px;height:16px;accent-color:var(--wood)}
+
+  /* ---- 实验2 缺页/沙盘 ---- */
+  .shelf-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:5px;margin:12px 0}
+  .cell{aspect-ratio:1;border-radius:6px;border:1px solid var(--line);display:grid;place-items:center;
+    font-size:10px;font-family:ui-monospace,monospace;background:#20293a;color:var(--ink2);cursor:pointer;transition:.15s;user-select:none}
+  .cell:hover{transform:scale(1.06)}
+  .cell.resident{background:var(--green);color:#e6edf3;border-color:var(--green)}
+  .cell.flash-hit{animation:fh .5s}
+  .cell.flash-miss{animation:fm .6s}
+  @keyframes fh{0%{box-shadow:0 0 0 3px var(--gold-l)}100%{box-shadow:none}}
+  @keyframes fm{0%,50%{background:var(--red);color:#e6edf3}100%{}}
+  .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+  .stat{background:#1c2333;border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center}
+  .stat .n{font-size:26px;font-weight:700;color:var(--wood-d)}
+  .stat .l{font-size:11px;color:var(--ink2)}
+  .log{max-height:180px;overflow-y:auto;background:#0b0f14;color:#c9d1d9;border:1px solid var(--bd);border-radius:10px;padding:10px 12px;
+    font-family:ui-monospace,monospace;font-size:11.5px;line-height:1.6;margin-top:12px}
+  .log div{padding:1px 0}
+  .log .hit{color:#3fb950}.log .miss-anon{color:#d29922}.log .miss-cache{color:#58a6ff}.log .miss-disk{color:#ff9a8a}
+  .slider-row{display:flex;align-items:center;gap:12px;margin:14px 0 6px}
+  .slider-row input[type=range]{flex:1;accent-color:var(--wood)}
+  .slider-row .val{font-family:ui-monospace,monospace;font-weight:700;color:var(--red);min-width:70px;text-align:right}
+
+  /* ---- 实验3 COW ---- */
+  .cow-stage{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px}
+  .proc{background:#1c2333;border:1px solid var(--line);border-radius:12px;padding:14px}
+  .proc h4{font-size:14px;color:var(--wood-d);margin-bottom:10px;display:flex;justify-content:space-between}
+  .pages{display:flex;flex-direction:column;gap:7px}
+  .pg{display:flex;align-items:center;gap:8px;background:#20293a;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px}
+  .pg .dot{width:12px;height:12px;border-radius:3px;flex:0 0 auto}
+  .pg .txt{flex:1;font-family:ui-monospace,monospace;font-size:11.5px}
+  .pg .tag{font-size:10px;padding:1px 7px;border-radius:10px}
+  .pg.shared .dot{background:var(--blue)} .pg.shared .tag{background:rgba(88,166,255,.15);color:var(--blue)}
+  .pg.copied .dot{background:var(--red)} .pg.copied .tag{background:rgba(207,34,46,.18);color:var(--red)}
+  .pg.own .dot{background:var(--green)} .pg.own .tag{background:rgba(63,185,80,.18);color:var(--green)}
+  .pg .writebtn{font-size:10.5px;padding:3px 9px;border:1px solid var(--line);border-radius:6px;background:#e6edf3;cursor:pointer;color:var(--wood-d)}
+  .mem-meter{margin-top:14px;background:#1c2333;border:1px solid var(--line);border-radius:10px;padding:14px}
+  .mem-meter .big{font-size:30px;font-weight:700;color:var(--red)}
+  .bar{height:16px;border-radius:8px;background:#2b3548;overflow:hidden;margin-top:8px}
+  .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--green),var(--gold-l),var(--red));transition:width .3s;width:0}
+
+  .note{font-size:12.5px;color:var(--ink2);background:rgba(210,153,34,.08);border-left:4px solid var(--gold);border-radius:8px;padding:10px 13px;margin-top:14px}
+  .note b{color:var(--wood-d)}
+
+  /* ---- 实验4 置换对决 ---- */
+  .algo-cols{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media(max-width:760px){.algo-cols{grid-template-columns:1fr}}
+  .algo{background:#1c2333;border:1px solid var(--line);border-radius:12px;padding:13px}
+  .algo h4{font-size:14px;color:var(--wood-d);display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px}
+  .algo h4 .badge2{font-size:10px;font-weight:600;padding:1px 8px;border-radius:10px;background:#2b3548;color:var(--wood-d)}
+  .algo .sub{font-size:11px;color:var(--ink2);margin-bottom:9px;min-height:28px}
+  .frames{display:flex;flex-direction:column;gap:5px}
+  .frame{display:flex;align-items:center;gap:7px;background:#20293a;border:1px solid var(--line);border-radius:7px;padding:6px 9px;font-size:12px;font-family:ui-monospace,monospace;transition:.2s}
+  .frame.filled{background:rgba(63,185,80,.12);border-color:rgba(63,185,80,.4)}
+  .frame.evict{background:var(--red);color:#e6edf3;border-color:var(--red)}
+  .frame.load{background:var(--gold-l);color:#e6edf3}
+  .frame .fi{color:var(--ink2);font-size:10px}
+  .frame .clk{margin-left:auto;font-size:10px}
+  .algo .faults{margin-top:10px;text-align:center;background:#242d3f;border-radius:8px;padding:6px}
+  .algo .faults .n{font-size:24px;font-weight:700;color:var(--red)}
+  .algo .faults .n.best{color:var(--green)}
+  .algo .faults .l{font-size:10.5px;color:var(--ink2)}
+  .seq-chips{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0}
+  .seq-chips .sc{width:26px;height:26px;border-radius:6px;display:grid;place-items:center;font-family:ui-monospace,monospace;
+    font-size:12px;background:#242d3f;color:var(--ink2);border:1px solid var(--line)}
+  .seq-chips .sc.cur{background:var(--red);color:#e6edf3;border-color:var(--red)}
+  .seq-chips .sc.past{background:rgba(63,185,80,.12)}
+  .belady-flag{display:none;margin-top:12px;background:linear-gradient(120deg,rgba(240,136,62,.10),rgba(240,136,62,.16));border-left:5px solid var(--red);
+    border-radius:10px;padding:12px 15px;font-size:13px;color:var(--red);font-weight:600}
+  .belady-flag.show{display:block}
+
+  /* ---- 实验5 喊话作废 ---- */
+  .disciples{display:flex;flex-wrap:wrap;gap:9px;margin:14px 0;justify-content:center}
+  .disc{width:58px;text-align:center;font-size:10.5px;color:var(--ink2);transition:.2s}
+  .disc .av{width:44px;height:44px;border-radius:50%;background:var(--wood-l);color:#e6edf3;display:grid;place-items:center;
+    margin:0 auto 3px;font-size:18px;border:2px solid var(--gold-l);transition:.25s;position:relative}
+  .disc.initiator .av{background:var(--red);border-color:var(--red);transform:scale(1.12)}
+  .disc.notified .av{background:#d29922}
+  .disc.acked .av{background:var(--green);border-color:var(--green)}
+  .disc .st{font-size:9.5px;min-height:12px}
+  .shoot-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-top:12px}
+  .shoot-meta .m{background:#1c2333;border:1px solid var(--line);border-radius:10px;padding:11px;text-align:center}
+  .shoot-meta .m .n{font-size:22px;font-weight:700;color:var(--wood-d)}
+  .shoot-meta .m .n.red{color:var(--red)}
+  .shoot-meta .m .l{font-size:10.5px;color:var(--ink2)}
+
+  /* ---- 实验6 双层翻译 ---- */
+  .walk-wrap{overflow-x:auto;margin-top:6px}
+  .walk-grid{display:grid;grid-template-columns:150px repeat(4,1fr);gap:7px;min-width:640px}
+  .walk-grid .cellh{font-size:11px;font-weight:700;color:var(--wood-d);text-align:center;padding:6px 4px;
+    background:#242d3f;border-radius:7px}
+  .walk-grid .rowh{font-size:11.5px;color:var(--wood-d);display:flex;align-items:center;gap:6px;padding:6px 8px;
+    background:#20293a;border-radius:7px;border:1px solid var(--line);font-weight:600}
+  .walk-grid .wc{background:#1c2333;border:1px solid var(--line);border-radius:7px;padding:8px 4px;text-align:center;
+    font-family:ui-monospace,monospace;font-size:11px;color:var(--ink2);opacity:.4;transition:.25s;min-height:44px;
+    display:flex;flex-direction:column;justify-content:center;gap:2px}
+  .walk-grid .wc.done{opacity:1;background:rgba(63,185,80,.12);border-color:rgba(63,185,80,.4)}
+  .walk-grid .wc.cur{opacity:1;border:2px solid var(--red);background:#233047;box-shadow:0 2px 8px rgba(155,45,32,.2)}
+  .walk-grid .wc small{font-size:9px;color:var(--red);font-weight:700}
+  .walk-grid .wc.final{background:rgba(63,185,80,.12)}
+  .mode-tabs{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+  .mode-tabs button{font-family:inherit;font-size:12.5px;padding:8px 14px;border:1px solid var(--line);border-radius:9px;
+    background:#1c2333;cursor:pointer;color:var(--wood-d)}
+  .mode-tabs button.on{background:var(--wood);color:#e6edf3;border-color:var(--wood);font-weight:600}
+  .compare-bars{margin-top:14px;display:flex;flex-direction:column;gap:9px}
+  .cmp{display:grid;grid-template-columns:120px 1fr 46px;align-items:center;gap:10px;font-size:12px}
+  .cmp .cb{height:20px;border-radius:6px;background:#2b3548;overflow:hidden}
+  .cmp .cb i{display:block;height:100%;transition:width .5s}
+  .cmp .cbv{font-family:ui-monospace,monospace;font-weight:700;text-align:right}
+
+  /* 地图区（精简版） */
+
+
+  footer{margin-top:60px;text-align:center;font-size:12.5px;color:var(--tx2);border-top:1px solid var(--bd);padding-top:24px}
+  footer .foot-copy{margin-top:14px;font-size:12px;color:var(--tx3)}
+  footer .foot-link{color:var(--ac);text-decoration:none}
+  footer .foot-link:hover{text-decoration:underline}
+  footer .foot-tools{display:flex;gap:10px;justify-content:center;margin:16px 0 6px;flex-wrap:wrap}
+  .foot-btn{font-family:inherit;font-size:12.5px;padding:7px 16px;border:1px solid var(--bd);border-radius:8px;
+    background:var(--sf2);color:var(--tx);cursor:pointer;transition:.13s;display:inline-flex;align-items:center;gap:5px}
+  .foot-btn:hover{background:var(--bd)}
+  .foot-btn:active{transform:scale(.97)}
+
+  /* toast 提示 */
+  .toast{position:fixed;left:50%;bottom:34px;transform:translateX(-50%) translateY(12px);padding:10px 22px;
+    background:var(--sf2);color:var(--tx);border:1px solid var(--ac);border-radius:10px;font-size:13.5px;z-index:999;
+    opacity:0;transition:opacity .25s,transform .25s;pointer-events:none;box-shadow:0 6px 24px rgba(0,0,0,.55);max-width:90vw;text-align:center}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* 快捷键提示条 */
+  .kbd-hint{margin:10px 0 0;text-align:center;font-size:12px;color:var(--tx3)}
+  .kbd-hint kbd{background:var(--sf2);border:1px solid var(--bd);border-bottom-width:2px;border-radius:5px;
+    padding:1px 7px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;color:var(--tx);margin:0 1px}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="inner">
+    <span class="brand">📚 虚拟内存实验室 · Virtual Memory Lab</span>
+    <a href="#lab1" class="navlink">① 地址翻译</a>
+    <a href="#lab2" class="navlink">② 缺页沙盘</a>
+    <a href="#lab3" class="navlink">③ 写时复制</a>
+    <a href="#lab4" class="navlink">④ 置换对决</a>
+    <a href="#lab5" class="navlink">⑤ 喊话作废</a>
+    <a href="#lab6" class="navlink">⑥ 双层翻译</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <h1>🔬 把抽象概念变成可以动手验证的实验</h1>
+  <div class="sub">先<b>预测</b> → 亲手<b>操作</b> → 看到<b>结果</b> → 对照<b>原理</b>。让你自己验证对错，而不是靠背。</div>
+  <div class="badge">虚拟内存全栈进阶红宝书 · 六大可验证实验室</div>
+  <div class="kbd-hint"><kbd>←</kbd> <kbd>→</kbd> 步进当前实验 · <kbd>Space</kbd> 播放/一键跑完 · 滚动到哪个实验就控制哪个</div>
+</header>
+
+<div class="wrap">
+
+  <!-- ========== 实验1 ========== -->
+  <section id="lab1">
+    <div class="sec-title"><div class="num">①</div>
+      <div><h2>地址翻译流水线 · 老王的四次查表</h2>
+      <p>全书最核心也最抽象的过程：一个虚拟编号如何被逐级翻译成真实书架坐标。</p></div>
+    </div>
+    <div class="flow4">
+      <div class="step"><b>1 · 预测</b><small>先猜：这个地址走 TLB 会命中吗？</small></div>
+      <div class="step"><b>2 · 操作</b><small>单步走完 TLB→L4→L3→L2→L1</small></div>
+      <div class="step"><b>3 · 结果</b><small>看每一级取出的物理地址</small></div>
+      <div class="step"><b>4 · 原理</b><small>对照“命中1单位 / 没记数百单位”</small></div>
+    </div>
+
+    <div class="panel">
+      <div class="row lr">
+        <div>
+          <label class="fld">输入一个 48 位虚拟地址（老王的编号）</label>
+          <div style="display:flex;gap:8px;align-items:stretch">
+            <input id="va" type="text" value="0x00007fff12345678" style="flex:1">
+            <button class="btn sec" id="vaRand" title="随机生成一个合法的 48 位虚拟地址" style="white-space:nowrap">🎲 随机地址</button>
+          </div>
+          <div class="va-parts" id="vaParts"></div>
+
+          <div class="predict">
+            <b>先别急着算——预测一下：</b>这个地址<b>此刻</b>在老王的“热门书小本本(TLB)”里吗？
+            <div class="opts" id="pred1">
+              <button data-v="hit">会命中（小本本里有）</button>
+              <button data-v="miss">会没记（要逐级翻）</button>
+            </div>
+            <div class="verdict" id="verdict1"></div>
+          </div>
+
+          <div class="btn-row">
+            <button class="btn" id="stepBtn">▶ 单步翻译</button>
+            <button class="btn gold" id="autoBtn">⏩ 一次走完</button>
+            <button class="btn sec" id="resetBtn1">↺ 重来</button>
+          </div>
+          <div class="toggle-row">
+            <label class="switch"><input type="checkbox" id="tlbWarm"> 假设该地址已被访问过（TLB 预热命中）</label>
+          </div>
+          <div class="result-box" id="resultBox">
+            <div style="font-size:12px;color:var(--ink2)">翻译完成 · 真实书架坐标（物理地址）</div>
+            <div class="pa" id="paOut">—</div>
+            <div style="font-size:12px;color:var(--ink2);margin-top:6px">本次总耗时估算：<b id="totalCost" style="color:var(--red)">—</b> 个动作单位</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="subhead">翻译流水线（逐级点亮）</div>
+          <div class="pipe" id="pipe"></div>
+        </div>
+      </div>
+      <div class="note"><b>原理对照：</b>小本本命中约 <b>1</b> 个动作单位；没记则要走 4 级页表，约 <b>400</b> 个单位——相差数百倍。这就是为什么“局部性”和 TLB 命中率是整馆效率的关键杠杆。（对应 Level 3.1 / 3.2）</div>
+    </div>
+  </section>
+
+  <!-- ========== 实验2 ========== -->
+  <section id="lab2">
+    <div class="sec-title"><div class="num">②</div>
+      <div><h2>缺页三分支 &amp; 命中率沙盘 · 跑腿取书</h2>
+      <p>亲手访问书页，看老王判定走“空白页 / 公共副本 / 异地仓库”哪条分支，以及局部性如何决定抖动。</p></div>
+    </div>
+    <div class="flow4">
+      <div class="step"><b>1 · 预测</b><small>下次点哪一格？它会命中还是缺页？</small></div>
+      <div class="step"><b>2 · 操作</b><small>点击书格发起访问 / 或自动跑序列</small></div>
+      <div class="step"><b>3 · 结果</b><small>看命中率、缺页次数、耗时日志</small></div>
+      <div class="step"><b>4 · 原理</b><small>缩小书架→亲眼见 thrashing 抖动</small></div>
+    </div>
+
+    <div class="panel">
+      <div class="row two">
+        <div>
+          <div class="subhead">书库（32 页 · 绿色=已在真实书架上）</div>
+          <div class="shelf-grid" id="shelfGrid"></div>
+          <div class="predict">
+            <b>预测：</b>点某一格前先猜——它当前<b>在架上</b>吗？点下去验证。绿色=在架(命中)，米色=不在(缺页，触发跑腿取书)。
+          </div>
+          <div class="slider-row">
+            <span style="font-size:12.5px;color:var(--ink2)">真实书架容量</span>
+            <input id="capacity" type="range" min="2" max="16" value="8">
+            <span class="val" id="capVal">8 格</span>
+          </div>
+          <div class="btn-row">
+            <button class="btn" id="localRun">▶ 跑“局部性好”的读者(80%集中访问)</button>
+            <button class="btn sec" id="randRun">🎲 跑“乱翻”的读者(随机)</button>
+            <button class="btn sec" id="resetBtn2">↺ 清空</button>
+          </div>
+        </div>
+        <div>
+          <div class="subhead">运营统计</div>
+          <div class="stat-grid">
+            <div class="stat"><div class="n" id="stHit">0</div><div class="l">命中(在架)</div></div>
+            <div class="stat"><div class="n" id="stMiss" style="color:var(--red)">0</div><div class="l">缺页(跑腿)</div></div>
+            <div class="stat"><div class="n" id="stRate" style="color:var(--green)">—</div><div class="l">命中率</div></div>
+          </div>
+          <div class="stat" style="margin-top:10px"><div class="n" id="stCost" style="color:var(--red)">0 μs</div><div class="l">累计跑腿耗时估算</div></div>
+          <div class="log" id="faultLog"><div style="opacity:.6">点击书格或运行序列，日志将显示每次访问走了哪条分支……</div></div>
+        </div>
+      </div>
+      <div class="note"><b>原理对照（缺页代价四个数量级）：</b>空白页/公共副本命中 ≈ <b>1μs</b> · SSD 调档 ≈ <b>100μs</b> · 机械盘/异地仓库 ≈ <b>10ms</b>。把书架容量调小、再跑一次，你会看到命中率崩塌、系统陷入“读者原地打转”的 <b>抖动(thrashing)</b>——所有权衡随之崩溃。（对应 Level 2.4 / 4）</div>
+    </div>
+  </section>
+
+  <!-- ========== 实验3 ========== -->
+  <section id="lab3">
+    <div class="sec-title"><div class="num">③</div>
+      <div><h2>写时复制(COW)沙盘 · 先记账，真涂改才复印</h2>
+      <p>全书最反直觉的“懒惰优化”：复刻一份不等于复制内存，只有真去涂改那一页才付出代价。</p></div>
+    </div>
+    <div class="flow4">
+      <div class="step"><b>1 · 预测</b><small>fork 后内存占用会翻倍吗？</small></div>
+      <div class="step"><b>2 · 操作</b><small>fork，再对某一页发起“写”</small></div>
+      <div class="step"><b>3 · 结果</b><small>看真实内存占用如何变化</small></div>
+      <div class="step"><b>4 · 原理</b><small>只有被写的那一页才复制</small></div>
+    </div>
+
+    <div class="panel">
+      <div class="predict">
+        <b>先预测：</b>父进程有 6 页内容。执行 fork 复刻出子进程后，真实内存占用会立刻变成……
+        <div class="opts" id="pred3">
+          <button data-v="double">翻倍(12 页)</button>
+          <button data-v="same">几乎不变(仍 6 页)</button>
+        </div>
+        <div class="verdict" id="verdict3"></div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" id="forkBtn">🍴 fork() 复刻子进程</button>
+        <button class="btn sec" id="resetBtn3">↺ 重来</button>
+      </div>
+
+      <div class="cow-stage" id="cowStage" style="display:none">
+        <div class="proc">
+          <h4>父进程 <span style="font-size:11px;color:var(--ink2)">parent</span></h4>
+          <div class="pages" id="parentPages"></div>
+        </div>
+        <div class="proc">
+          <h4>子进程 <span style="font-size:11px;color:var(--ink2)">child (fork)</span></h4>
+          <div class="pages" id="childPages"></div>
+        </div>
+      </div>
+
+      <div class="mem-meter">
+        <span class="big" id="memBig">6</span><span style="font-size:14px;color:var(--ink2)"> 页真实内存占用</span>
+        <span style="float:right;font-size:12.5px;color:var(--ink2)">共享中：<b id="sharedCount" style="color:var(--blue)">0</b> · 已复印：<b id="copiedCount" style="color:var(--red)">0</b></span>
+        <div class="bar"><i id="memBar"></i></div>
+        <div style="font-size:12px;color:var(--ink2);margin-top:8px" id="memNote">尚未 fork。点击上方按钮开始。</div>
+      </div>
+      <div class="note"><b>原理对照：</b>fork 后父子共享同一批只读页（蓝色=共享），真实内存几乎不涨；只有当某进程<b>真的去写</b>某一页时，老王才“复印”出私有副本（红色=已复印），此时才 +1 页。这就是“先记账、真涂改才复印”——延迟支付的艺术，是 fork/容器镜像/快照的核心。（对应 Level 4.4）</div>
+    </div>
+  </section>
+
+  <!-- ========== 实验4 置换对决 ========== -->
+  <section id="lab4">
+    <div class="sec-title"><div class="num">④</div>
+      <div><h2>页面置换三算法并排对决 · 谁的跑腿次数最少？</h2>
+      <p>同一串访问序列，喂给 FIFO / 时钟 / LRU 三种清仓算法，亲眼见“理论最优”的差距与 FIFO 的 Bélády 异常。</p></div>
+    </div>
+    <div class="flow4">
+      <div class="step"><b>1 · 预测</b><small>谁缺页最少？书架加大 FIFO 一定更好吗？</small></div>
+      <div class="step"><b>2 · 操作</b><small>输入序列/随机，单步或一键跑完</small></div>
+      <div class="step"><b>3 · 结果</b><small>三栏同步看缺页次数与淘汰过程</small></div>
+      <div class="step"><b>4 · 原理</b><small>触发 Bélády 异常时会当场报警</small></div>
+    </div>
+
+    <div class="panel">
+      <div class="predict">
+        <b>先预测两件事：</b>① 这三种算法里，你猜<b>哪一种</b>缺页次数最少？
+        <div class="opts" id="pred4">
+          <button data-v="fifo">FIFO</button>
+          <button data-v="clock">时钟算法</button>
+          <button data-v="lru">LRU</button>
+          <button data-v="tie">差不多</button>
+        </div>
+        <div class="verdict" id="verdict4"></div>
+      </div>
+
+      <div class="row" style="grid-template-columns:1fr;gap:12px">
+        <div>
+          <label class="fld">访问序列（页号，逗号或空格分隔）· 试试经典 Bélády 序列</label>
+          <input id="seqInput" type="text" value="1,2,3,4,1,2,5,1,2,3,4,5">
+          <div class="slider-row">
+            <span style="font-size:12.5px;color:var(--ink2)">书架容量(帧数)</span>
+            <input id="frames" type="range" min="2" max="5" value="3">
+            <span class="val" id="framesVal">3 帧</span>
+          </div>
+          <div class="btn-row">
+            <button class="btn" id="dstep">▶ 单步</button>
+            <button class="btn gold" id="drun">⏩ 一键跑完</button>
+            <button class="btn sec" id="dbelady">🧪 装入经典 Bélády 序列</button>
+            <button class="btn sec" id="drand">🎲 随机序列</button>
+            <button class="btn sec" id="dreset">↺ 重置</button>
+          </div>
+          <div class="seq-chips" id="seqChips"></div>
+        </div>
+      </div>
+
+      <div class="algo-cols" id="algoCols"></div>
+      <div class="belady-flag" id="beladyFlag"></div>
+      <div class="note"><b>原理对照：</b>LRU 效果接近“需要预知未来”的理论最优；时钟算法用“访问章+复活机会”近似 LRU，工程实用；<b>FIFO 有反直觉的 Bélády 异常——书架格子变多，缺页反而可能增加</b>。把容量从 3 调到 4 再跑经典序列，看 FIFO 缺页数不降反升。（对应 Level 4.1）</div>
+    </div>
+  </section>
+
+  <!-- ========== 实验5 喊话作废 ========== -->
+  <section id="lab5">
+    <div class="sec-title"><div class="num">⑤</div>
+      <div><h2>喊话作废(TLB Shootdown) · 徒弟越多，代价越高</h2>
+      <p>一位徒弟改动登记卡，就得喊停所有人对齐小本本。亲手拖动徒弟人数，看同步代价如何随规模膨胀。</p></div>
+    </div>
+    <div class="flow4">
+      <div class="step"><b>1 · 预测</b><small>徒弟从 4 人加到 128 人，代价涨几倍？</small></div>
+      <div class="step"><b>2 · 操作</b><small>选触发场景，发起一次喊话作废</small></div>
+      <div class="step"><b>3 · 结果</b><small>看广播→全员确认→放行的全过程与总耗时</small></div>
+      <div class="step"><b>4 · 原理</b><small>必须等最慢那位回“收到”才能继续</small></div>
+    </div>
+
+    <div class="panel">
+      <div class="predict">
+        <b>先预测：</b>把上岗徒弟从 4 人扩到 128 人，一次“喊话作废”的总耗时大约会……
+        <div class="opts" id="pred5">
+          <button data-v="same">几乎不变（广播是并行的）</button>
+          <button data-v="up">明显变大（要等最慢的人）</button>
+        </div>
+        <div class="verdict" id="verdict5"></div>
+      </div>
+
+      <div class="row" style="grid-template-columns:1fr">
+        <div>
+          <label class="fld">触发场景（谁改了登记卡）</label>
+          <div class="btn-row" id="shootScenes"></div>
+          <div class="slider-row">
+            <span style="font-size:12.5px;color:var(--ink2)">上岗徒弟数(CPU 核)</span>
+            <input id="discCount" type="range" min="4" max="128" step="4" value="16">
+            <span class="val" id="discVal">16 人</span>
+          </div>
+          <div class="btn-row">
+            <button class="btn" id="shootBtn">📣 发起喊话作废(发送 IPI)</button>
+            <button class="btn sec" id="shootReset">↺ 复位</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="disciples" id="disciples"></div>
+      <div class="shoot-meta">
+        <div class="m"><div class="n" id="mScene" style="font-size:14px;line-height:2.3">—</div><div class="l">当前触发场景</div></div>
+        <div class="m"><div class="n red" id="mTotal">—</div><div class="l">本次总耗时(等最慢的人)</div></div>
+        <div class="m"><div class="n" id="mAck">0/0</div><div class="l">已确认 / 徒弟总数</div></div>
+        <div class="m"><div class="n" id="mPer" style="font-size:14px;line-height:2.3">≈1.6 μs/人</div><div class="l">单个徒弟处理耗时</div></div>
+      </div>
+      <div class="note"><b>原理对照：</b>发起方组织喊话 ≈100ns，每位徒弟反应+划记录+回话 ≈1.6μs；但发起方<b>必须等所有人都回“收到”</b>才能继续，总代价 ≈ 最慢那位 + 传播延迟。16 人规模 ≈5-20μs，128 人规模 ≈50-100μs——徒弟越多越贵。缓解手段：整箱打包/固定不归还/分馆分组/PCID。（对应 Level 5.1）</div>
+    </div>
+  </section>
+
+  <!-- ========== 实验6 双层翻译 ========== -->
+  <section id="lab6">
+    <div class="sec-title"><div class="num">⑥</div>
+      <div><h2>二房东双层翻译(EPT/NPT) · 翻译簿要查穿两层皮</h2>
+      <p>虚拟化下，房客编号要先经二房东翻译成“伪坐标”，每一级又都得让老王再转成真实坐标——最坏 20~24 次查表。</p></div>
+    </div>
+    <div class="flow4">
+      <div class="step"><b>1 · 预测</b><small>比单层(4次)贵几倍？TLB 命中还贵吗？</small></div>
+      <div class="step"><b>2 · 操作</b><small>逐格走完“二房东×老王”的二维走表</small></div>
+      <div class="step"><b>3 · 结果</b><small>数出真实动作次数，三种模式对比</small></div>
+      <div class="step"><b>4 · 原理</b><small>看小本本(TLB)如何一键抹平代价</small></div>
+    </div>
+
+    <div class="panel">
+      <div class="predict">
+        <b>先预测：</b>没有二房东时一次翻译最坏走 4 次；加了二房东转租(嵌套虚拟化)后，最坏要走多少次真实动作？
+        <div class="opts" id="pred6">
+          <button data-v="8">约 8 次(翻倍)</button>
+          <button data-v="12">约 12 次(三倍)</button>
+          <button data-v="20">约 20~24 次</button>
+        </div>
+        <div class="verdict" id="verdict6"></div>
+      </div>
+
+      <div class="mode-tabs" id="modeTabs">
+        <button data-m="single" class="on">🅰 单层翻译(无二房东)</button>
+        <button data-m="nested">🅱 二房东双层翻译</button>
+        <button data-m="tlb">🅲 二房东 + 小本本命中(TLB)</button>
+      </div>
+
+      <div class="btn-row" style="margin-bottom:8px">
+        <button class="btn" id="wstep">▶ 单步走表</button>
+        <button class="btn gold" id="wrun">⏩ 一键走完</button>
+        <button class="btn sec" id="wreset">↺ 重置</button>
+      </div>
+
+      <div class="walk-wrap"><div class="walk-grid" id="walkGrid"></div></div>
+      <div id="walkResult" style="margin-top:14px;display:none">
+        <div class="result-box show" style="background:rgba(63,185,80,.10);border-color:rgba(63,185,80,.4)">
+          <div style="font-size:12px;color:var(--ink2)" id="walkResLbl">翻译完成</div>
+          <div class="pa" id="walkResN">—</div>
+        </div>
+      </div>
+
+      <div class="subhead">三种模式 · 真实动作次数对比</div>
+      <div class="compare-bars">
+        <div class="cmp"><span>单层翻译</span><div class="cb"><i style="background:var(--green);width:16.7%"></i></div><span class="cbv" style="color:var(--green)">4 次</span></div>
+        <div class="cmp"><span>二房东双层</span><div class="cb"><i style="background:var(--red);width:100%"></i></div><span class="cbv" style="color:var(--red)">24 次</span></div>
+        <div class="cmp"><span>双层+TLB命中</span><div class="cb"><i style="background:var(--gold-l);width:4.2%"></i></div><span class="cbv" style="color:var(--gold)">1 次</span></div>
+      </div>
+      <div class="note"><b>原理对照：</b>二房东的 4 级页表，每一级指针记的都是“二房东坐标(GPA)”，都得让老王的转换簿(EPT/NPT)再走 4 级转成真实坐标(HPA)——5 次 GPA 转换 × 4 级 = 20 次，加上二房东根表本身的转换共 <b>24 次</b>。但只要“房客编号→真实坐标”的最终结果进了小本本，命中后代价仍是 <b>约 1 次</b>，和没有二房东时毫无区别。这正是虚拟化场景格外强调“两层都开整箱打包(大页)”的原因。（对应 Level 6.1）</div>
+    </div>
+  </section>
+
+
+
+  <footer>
+    <div class="foot-tools">
+      <button class="foot-btn" id="bScreenshot" title="把当前实验面板导出为 PNG 图片">📷 截图当前实验</button>
+      <button class="foot-btn" id="bShare" title="复制带当前状态的分享链接">🔗 复制分享链接</button>
+    </div>
+    📖 基于《虚拟内存全栈进阶红宝书 · V2 叙事版》 · 从“静态图解”升级为“可动手验证的仿真实验室”<br>
+    <span style="opacity:.75">先预测 · 后操作 · 看结果 · 对原理</span>
+    <div class="foot-copy">MIT License · © 2026 <a href="https://github.com/imZhiYa/tech-knowledge-docs" target="_blank" rel="noopener noreferrer" class="foot-link">ZhiYa</a></div>
+  </footer>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* ============================================================
+   [PERF-01/07] 动画生命周期管理 + DOM 引用助手（全局基础设施）
+   - anim[name] 代际计数：每次启动动画自增，tick 内校验，失效即自杀
+   - timers[name] 句柄：启动前清理旧句柄，杜绝并发 tick 链踩踏
+   - $()：getElementById 简写；页面卸载/切走时统一清理定时器
+   ============================================================ */
+const $ = id => document.getElementById(id);
+const anim = { pipe:0, seq:0, algo:0, shoot:0, walk:0 };
+const timers = {};
+function startAnim(name){ clearTimeout(timers[name]); return ++anim[name]; }
+function schedule(name, fn, ms){ timers[name] = setTimeout(fn, ms); }
+function alive(name, gen){ return gen === anim[name]; }
+function stopAllAnims(){ Object.keys(timers).forEach(k=>clearTimeout(timers[k])); }
+document.addEventListener('visibilitychange',()=>{ if(document.hidden) stopAllAnims(); });
+window.addEventListener('beforeunload', stopAllAnims);
+
+/* ============================================================
+   实验 1：地址翻译流水线
+   ============================================================ */
+const va=document.getElementById('va');
+const vaParts=document.getElementById('vaParts');
+const pipe=document.getElementById('pipe');
+const FIELDS=[
+  {name:'L4',bits:9,color:'#9b2d20'},{name:'L3',bits:9,color:'#b8860b'},
+  {name:'L2',bits:9,color:'#4e7d3a'},{name:'L1',bits:9,color:'#2e6a8a'},
+  {name:'页内偏移',bits:12,color:'#6b4a8a'},
+];
+let stepIdx=-1, curPipe=[], pred1=null;
+
+function parseVA(){
+  let s=va.value.trim().replace(/^0x/i,'').replace(/[^0-9a-fA-F]/g,'')||'0';
+  let v; try{v=BigInt('0x'+s);}catch(e){v=0n;}
+  return v & ((1n<<48n)-1n);
+}
+function fields(v){
+  return [Number((v>>39n)&0x1ffn),Number((v>>30n)&0x1ffn),Number((v>>21n)&0x1ffn),Number((v>>12n)&0x1ffn),Number(v&0xfffn)];
+}
+// 用地址稳定派生一个"物理页帧号"，让结果可复现
+function derivePFN(v){ return ((v>>12n) * 2654435761n) & 0xfffffn; }
+
+function renderVA(){
+  const v=parseVA(), p=fields(v);
+  vaParts.innerHTML=FIELDS.map((f,i)=>`
+    <div class="va-part" data-i="${i}">
+      <div class="t">${f.name}</div>
+      <div class="v" style="color:${f.color}">0x${p[i].toString(16).toUpperCase()}</div>
+    </div>`).join('');
+}
+function buildPipeline(){
+  const v=parseVA(), p=fields(v);
+  const warm=document.getElementById('tlbWarm').checked;
+  const pfn=derivePFN(v);
+  const offset=p[4];
+  const stages=[];
+  if(warm){
+    stages.push({name:'🔍 查热门书小本本 (TLB)',cost:'≈1 单位',
+      detail:`小本本<span class="hl">命中</span>！直接取出真实格子号 PFN=0x${pfn.toString(16).toUpperCase()}`, field:-1, hit:true});
+  }else{
+    stages.push({name:'🔍 查热门书小本本 (TLB)',cost:'≈1 单位',
+      detail:`小本本里<span class="hl">没记</span>（TLB miss）→ 必须逐级翻分区索引牌`, field:-1, hit:false});
+    stages.push({name:'📖 L4 分区索引牌 (PML4)',cost:'~100 单位',
+      detail:`用 L4 索引 <span class="hl">0x${p[0].toString(16).toUpperCase()}</span> 定位下一级页表基址`, field:0});
+    stages.push({name:'📖 L3 分区索引牌 (PDPT)',cost:'~100 单位',
+      detail:`用 L3 索引 <span class="hl">0x${p[1].toString(16).toUpperCase()}</span> 定位下一级`, field:1});
+    stages.push({name:'📖 L2 分区索引牌 (PD)',cost:'~100 单位',
+      detail:`用 L2 索引 <span class="hl">0x${p[2].toString(16).toUpperCase()}</span> 定位下一级`, field:2});
+    stages.push({name:'📖 L1 分区索引牌 (PT)',cost:'~100 单位',
+      detail:`用 L1 索引 <span class="hl">0x${p[3].toString(16).toUpperCase()}</span> 取出登记卡(PTE) → PFN=0x${pfn.toString(16).toUpperCase()}`, field:3});
+    stages.push({name:'📓 顺手记进小本本',cost:'0',
+      detail:`把本次翻译结果写回 TLB，下次直接命中`, field:-1});
+  }
+  stages.push({name:'🧮 拼接真实地址',cost:'0',
+    detail:`物理地址 = (PFN 0x${pfn.toString(16).toUpperCase()} << 12) | 偏移 0x${offset.toString(16).toUpperCase()}`, field:4,
+    final:true, pa:(pfn<<12n)|BigInt(offset), warm});
+  return stages;
+}
+function renderPipe(){
+  pipe.innerHTML=curPipe.map((s,i)=>`
+    <div class="stage ${i<stepIdx?'done':''} ${i===stepIdx?'cur':''}" data-i="${i}">
+      <div class="st-top"><span class="st-name">${s.name}</span><span class="st-cost">${s.cost}</span></div>
+      <div class="st-detail">${s.detail}</div>
+    </div>`).join('<div class="connector">▼</div>');
+  // 高亮对应字段
+  document.querySelectorAll('.va-part').forEach(e=>e.classList.remove('active'));
+  if(stepIdx>=0 && curPipe[stepIdx] && curPipe[stepIdx].field>=0){
+    const el=document.querySelector(`.va-part[data-i="${curPipe[stepIdx].field}"]`);
+    if(el) el.classList.add('active');
+  }
+}
+function checkVerdict1(){
+  if(pred1===null) return;
+  const warm=document.getElementById('tlbWarm').checked;
+  const actual = warm?'hit':'miss';
+  const v=document.getElementById('verdict1');
+  if(pred1===actual){ v.className='verdict ok'; v.textContent=warm?'✓ 预测正确！已预热 → TLB 命中，只需约 1 单位。':'✓ 预测正确！未预热 → TLB 没记，要逐级翻约 400 单位。'; }
+  else{ v.className='verdict no'; v.textContent=warm?'✗ 其实会命中——你勾选了“已预热”，小本本里有它。':'✗ 其实会没记——未预热的地址不在小本本里，得逐级翻。'; }
+}
+function resetPipe(){ startAnim('pipe'); stepIdx=-1; curPipe=buildPipeline(); renderPipe();
+  $('resultBox').classList.remove('show');
+}
+document.getElementById('stepBtn').onclick=()=>{
+  if(stepIdx===-1) curPipe=buildPipeline();
+  if(stepIdx<curPipe.length-1){ stepIdx++; renderPipe();
+    if(stepIdx===curPipe.length-1) finishPipe();
+  }
+};
+$('autoBtn').onclick=()=>{
+  const gen=startAnim('pipe');
+  curPipe=buildPipeline(); stepIdx=-1;
+  const tick=()=>{ if(!alive('pipe',gen)) return;
+    if(stepIdx<curPipe.length-1){ stepIdx++; renderPipe();
+    if(stepIdx===curPipe.length-1){ finishPipe(); return;} schedule('pipe',tick,420);} };
+  tick();
+};
+function finishPipe(){
+  const last=curPipe[curPipe.length-1];
+  const box=document.getElementById('resultBox');
+  document.getElementById('paOut').textContent='0x'+last.pa.toString(16).toUpperCase().padStart(12,'0');
+  document.getElementById('totalCost').textContent = last.warm? '≈ 1' : '≈ 400';
+  box.classList.add('show');
+  checkVerdict1();
+}
+document.getElementById('resetBtn1').onclick=resetPipe;
+va.addEventListener('input',()=>{renderVA();resetPipe();});
+// 随机生成一个合法的 48 位虚拟地址（低 12 位为页内偏移，整体裁到 48 位）
+function randomVA(){
+  // 拼 12 个十六进制位 = 48 bit
+  let hex='';
+  for(let i=0;i<12;i++) hex+=Math.floor(Math.random()*16).toString(16);
+  return '0x0000'+hex; // 前缀补零对齐 64 位书写习惯，实际取低 48 位
+}
+document.getElementById('vaRand').addEventListener('click',()=>{
+  va.value=randomVA(); renderVA(); resetPipe();
+  if(typeof toast==='function') toast('🎲 已生成随机 48 位虚拟地址');
+});
+document.getElementById('tlbWarm').addEventListener('change',resetPipe);
+document.querySelectorAll('#pred1 button').forEach(b=>b.onclick=()=>{
+  pred1=b.dataset.v;
+  document.querySelectorAll('#pred1 button').forEach(x=>x.classList.remove('picked'));
+  b.classList.add('picked');
+});
+renderVA(); resetPipe();
+
+/* ============================================================
+   实验 2：缺页 & 命中率沙盘
+   ============================================================ */
+const N=32;
+const grid=document.getElementById('shelfGrid');
+let capacity=8, resident=new Set(), lruOrder=[], hitCnt=0, missCnt=0, costUs=0;
+const logEl=document.getElementById('faultLog');
+// 每格随机赋予一种"来源"，决定缺页走哪条分支
+const pageKind=[]; // 'anon' | 'cache' | 'disk'
+for(let i=0;i<N;i++){ const r=Math.random(); pageKind[i]= r<0.4?'anon': r<0.75?'cache':'disk'; }
+const KIND_INFO={
+  anon:{cost:1,cls:'miss-anon',label:'空白页(匿名)',detail:'挑空格+擦净+登记'},
+  cache:{cost:1,cls:'miss-cache',label:'公共副本命中(PageCache)',detail:'阅览室已有，直接指过去'},
+  disk:{cost:10000,cls:'miss-disk',label:'异地仓库调档(HDD Swap)',detail:'派人去地下档案库，读者休眠等待'},
+};
+function buildGrid(){
+  grid.innerHTML='';
+  for(let i=0;i<N;i++){
+    const c=document.createElement('div');
+    c.className='cell'; c.dataset.i=i; c.textContent=i;
+    c.title='页 '+i+' · 来源:'+KIND_INFO[pageKind[i]].label;
+    c.onclick=()=>access(i,true);
+    grid.appendChild(c);
+  }
+  refreshGrid();
+}
+function refreshGrid(){
+  document.querySelectorAll('#shelfGrid .cell').forEach(c=>{
+    c.classList.toggle('resident', resident.has(+c.dataset.i));
+  });
+}
+function log(msg,cls){
+  if(logEl.children.length && logEl.firstChild.style && logEl.firstChild.style.opacity) logEl.innerHTML='';
+  const d=document.createElement('div'); d.className=cls||''; d.innerHTML=msg;
+  logEl.insertBefore(d, logEl.firstChild);
+  // [PERF-08] 日志限长，防止长时间连跑导致 DOM 无界增长
+  while(logEl.children.length>120) logEl.removeChild(logEl.lastChild);
+}
+function access(i, flash){
+  const cell=grid.children[i];
+  if(resident.has(i)){
+    hitCnt++;
+    // LRU 更新
+    lruOrder=lruOrder.filter(x=>x!==i); lruOrder.push(i);
+    if(flash){ cell.classList.remove('flash-hit'); void cell.offsetWidth; cell.classList.add('flash-hit'); }
+    log(`✓ 访问页 ${i} → <b>命中</b>，书就在架上（≈0）`, 'hit');
+  }else{
+    missCnt++;
+    const k=pageKind[i], info=KIND_INFO[k];
+    costUs += info.cost;
+    // 装入，若超容量按 LRU 淘汰
+    if(resident.size>=capacity){
+      const evict=lruOrder.shift(); resident.delete(evict);
+      log(`  ↳ 书架满，清仓挪走冷页 ${evict}（时钟/LRU）`, '');
+    }
+    resident.add(i); lruOrder.push(i);
+    if(flash){ cell.classList.remove('flash-miss'); void cell.offsetWidth; cell.classList.add('flash-miss'); }
+    log(`✗ 访问页 ${i} → <b>缺页！跑腿取书</b>：${info.label}（${info.detail}，≈${info.cost>=1000?(info.cost/1000)+'ms':info.cost+'μs'}）`, info.cls);
+  }
+  refreshGrid(); updateStats();
+}
+function updateStats(){
+  const total=hitCnt+missCnt;
+  document.getElementById('stHit').textContent=hitCnt;
+  document.getElementById('stMiss').textContent=missCnt;
+  document.getElementById('stRate').textContent= total? Math.round(hitCnt/total*100)+'%':'—';
+  document.getElementById('stCost').textContent= costUs>=1000? (costUs/1000).toFixed(1)+' ms' : costUs+' μs';
+}
+function resetLab2(){ resident.clear(); lruOrder=[]; hitCnt=0; missCnt=0; costUs=0; refreshGrid(); updateStats();
+  logEl.innerHTML='<div style="opacity:.6">已清空。点击书格或运行序列……</div>'; }
+document.getElementById('capacity').oninput=e=>{ capacity=+e.target.value; document.getElementById('capVal').textContent=capacity+' 格';
+  // 若当前驻留超过新容量，按 LRU 收缩
+  while(resident.size>capacity){ const ev=lruOrder.shift(); resident.delete(ev);} refreshGrid(); };
+document.getElementById('resetBtn2').onclick=resetLab2;
+function runSeq(seq){ const gen=startAnim('seq'); resetLab2(); let k=0;
+  const tick=()=>{ if(!alive('seq',gen)) return;
+    if(k<seq.length){ access(seq[k],true); k++; schedule('seq',tick,180);} }; tick(); }
+document.getElementById('localRun').onclick=()=>{
+  // 局部性好：80% 集中在一个 hot 小集合
+  const hot=[3,4,5,11,12,13]; const seq=[];
+  for(let n=0;n<40;n++){ seq.push(Math.random()<0.8? hot[Math.floor(Math.random()*hot.length)] : Math.floor(Math.random()*N)); }
+  runSeq(seq);
+};
+document.getElementById('randRun').onclick=()=>{
+  const seq=[]; for(let n=0;n<40;n++) seq.push(Math.floor(Math.random()*N)); runSeq(seq);
+};
+buildGrid(); updateStats();
+
+/* ============================================================
+   实验 3：COW 写时复制沙盘
+   ============================================================ */
+const PAGES=[
+  {name:'代码段 Text',ro:true},{name:'全局变量 Data'},{name:'堆页 Heap #1'},
+  {name:'堆页 Heap #2'},{name:'栈页 Stack #1'},{name:'栈页 Stack #2'},
+];
+let forked=false, pred3=null;
+// state per page: 'own'(fork前父独占) 'shared'(fork后共享) 'copied'(已写时复制)
+let pstate=[], cstate=[];
+const parentPages=document.getElementById('parentPages');
+const childPages=document.getElementById('childPages');
+
+function renderCow(){
+  const mk=(arr,side)=>arr.map((st,i)=>{
+    const p=PAGES[i];
+    const cls = st;
+    const tag = st==='own'?'父独占': st==='shared'?'共享(只读)':'已复印(私有)';
+    const canWrite = forked && (st==='shared'||st==='copied') && !(p.ro && st==='shared');
+    return `<div class="pg ${cls}">
+      <span class="dot"></span>
+      <span class="txt">${p.name}${p.ro?' 🔒':''}</span>
+      <span class="tag">${tag}</span>
+      ${forked && !p.ro ? `<button class="writebtn" data-side="${side}" data-i="${i}">✎ 写此页</button>`:''}
+    </div>`;
+  }).join('');
+  parentPages.innerHTML=mk(pstate,'p');
+  childPages.innerHTML=mk(cstate,'c');
+  document.querySelectorAll('.writebtn').forEach(b=>b.onclick=()=>writePage(b.dataset.side,+b.dataset.i));
+  updateMem();
+}
+function updateMem(){
+  // 真实内存 = 共享页各算1份(父子共用) + 每个 copied 额外 +1
+  let base=PAGES.length; // 父的6页始终占用
+  let copied=0, shared=0;
+  for(let i=0;i<PAGES.length;i++){
+    if(cstate[i]==='copied') copied++;
+    if(cstate[i]==='shared'||pstate[i]==='shared') shared++;
+    else if(pstate[i]==='copied') copied++;
+  }
+  // 统计口径：初始6页；每发生一次写时复制 +1
+  const copiedTotal = pstate.filter(s=>s==='copied').length + cstate.filter(s=>s==='copied').length;
+  const sharedTotal = forked? cstate.filter((s,i)=> s==='shared').length : 0;
+  const total=6+copiedTotal;
+  document.getElementById('memBig').textContent=total;
+  document.getElementById('sharedCount').textContent=sharedTotal;
+  document.getElementById('copiedCount').textContent=copiedTotal;
+  document.getElementById('memBar').style.width=Math.min(100,total/12*100)+'%';
+  let note;
+  if(!forked) note='尚未 fork。点击上方按钮开始。';
+  else if(copiedTotal===0) note='fork 完成！父子共享全部 6 页，真实内存几乎没涨 —— 这就是“先记账、不复印”。现在挑一页点“写此页”试试。';
+  else note=`已发生 ${copiedTotal} 次写时复制：每写一页才 +1 页真实内存。没被写的页仍在共享。`;
+  document.getElementById('memNote').textContent=note;
+}
+function verdict3Show(){
+  const v=document.getElementById('verdict3');
+  if(pred3===null){ return; }
+  if(pred3==='same'){ v.className='verdict ok'; v.textContent='✓ 预测正确！fork 后共享页面，真实内存几乎不变（仍约 6 页）。'; }
+  else{ v.className='verdict no'; v.textContent='✗ 其实不会翻倍！老王“只记账不复印”，父子先共享同一批页，占用几乎不变。'; }
+}
+document.querySelectorAll('#pred3 button').forEach(b=>b.onclick=()=>{
+  pred3=b.dataset.v;
+  document.querySelectorAll('#pred3 button').forEach(x=>x.classList.remove('picked'));
+  b.classList.add('picked');
+});
+document.getElementById('forkBtn').onclick=()=>{
+  forked=true;
+  pstate=PAGES.map(()=> 'shared');
+  cstate=PAGES.map(()=> 'shared');
+  document.getElementById('cowStage').style.display='grid';
+  renderCow(); verdict3Show();
+};
+function writePage(side,i){
+  if(PAGES[i].ro){ return; }
+  if(side==='p'){ pstate[i]='copied'; } else { cstate[i]='copied'; }
+  // 写方获得私有副本；对方若仍共享则回落为独占(不再需要共享标记，仍占原页)
+  renderCow();
+  const who = side==='p'?'父进程':'子进程';
+  document.getElementById('memNote').textContent=`${who}对“${PAGES[i].name}”发起写入 → 老王当场复印出一份私有副本（+1 页）。其余未写页仍共享。`;
+}
+function resetLab3(){ forked=false; pred3=null; pstate=PAGES.map(()=>'own'); cstate=PAGES.map(()=>'shared');
+  document.getElementById('cowStage').style.display='none';
+  document.querySelectorAll('#pred3 button').forEach(x=>x.classList.remove('picked'));
+  document.getElementById('verdict3').textContent='';
+  document.getElementById('memBig').textContent='6';
+  document.getElementById('sharedCount').textContent='0';
+  document.getElementById('copiedCount').textContent='0';
+  document.getElementById('memBar').style.width='0';
+  document.getElementById('memNote').textContent='尚未 fork。点击上方按钮开始。';
+}
+document.getElementById('resetBtn3').onclick=resetLab3;
+resetLab3();
+
+/* ============================================================
+   实验 4：页面置换三算法并排对决
+   ============================================================ */
+let seq=[], seqPos=-1, nFrames=3, pred4=null;
+const ALGOS=[
+  {key:'fifo', name:'先进先出 FIFO', badge:'反直觉', sub:'最早搬进来的先搬走 · 有 Bélády 异常'},
+  {key:'clock',name:'时钟算法', badge:'工程实用', sub:'访问章+复活机会，近似 LRU'},
+  {key:'lru',  name:'最久未用 LRU', badge:'接近最优', sub:'挪走最久没人翻的，接近理论最优'},
+];
+// 每种算法的运行时状态
+let sim4={};
+function initSim(){
+  sim4={};
+  ALGOS.forEach(a=>{ sim4[a.key]={frames:new Array(nFrames).fill(null), faults:0,
+    fifoQ:[], clockHand:0, clockRef:{}, lruTime:{}, lastEvt:null}; });
+}
+function parseSeq(){
+  return document.getElementById('seqInput').value.trim().split(/[\s,]+/).map(x=>parseInt(x)).filter(x=>!isNaN(x)).slice(0,20);
+}
+function resetLab4(keepSeq){
+  startAnim('algo');
+  seq=parseSeq(); seqPos=-1; initSim();
+  $('beladyFlag').classList.remove('show');
+  renderSeqChips(); renderAlgos();
+}
+function renderSeqChips(){
+  document.getElementById('seqChips').innerHTML = seq.map((p,i)=>
+    `<div class="sc ${i===seqPos?'cur':(i<seqPos?'past':'')}">${p}</div>`).join('');
+}
+// 单步：对某算法处理一个页
+function feed(algoKey, page){
+  const s=sim4[algoKey]; const idx=s.frames.indexOf(page);
+  s.lastEvt=null;
+  if(idx>=0){ // 命中
+    if(algoKey==='clock') s.clockRef[page]=true;
+    if(algoKey==='lru') s.lruTime[page]=Date.now()+Math.random();
+    s.lastEvt={type:'hit',page};
+    return;
+  }
+  // 缺页
+  s.faults++;
+  const empty=s.frames.indexOf(null);
+  if(empty>=0){
+    s.frames[empty]=page;
+    if(algoKey==='fifo') s.fifoQ.push(page);
+    if(algoKey==='clock'){ s.clockRef[page]=true; }
+    if(algoKey==='lru') s.lruTime[page]=Date.now()+Math.random();
+    s.lastEvt={type:'load',page,slot:empty};
+    return;
+  }
+  // 需要淘汰
+  let victimSlot;
+  if(algoKey==='fifo'){
+    const v=s.fifoQ.shift(); victimSlot=s.frames.indexOf(v); s.fifoQ.push(page);
+  }else if(algoKey==='clock'){
+    while(true){
+      const cand=s.frames[s.clockHand];
+      if(!s.clockRef[cand]){ victimSlot=s.clockHand; s.clockHand=(s.clockHand+1)%nFrames; break; }
+      s.clockRef[cand]=false; s.clockHand=(s.clockHand+1)%nFrames;
+    }
+    s.clockRef[page]=true;
+  }else{ // lru
+    let oldest=Infinity, os=0;
+    s.frames.forEach((f,i)=>{ if(s.lruTime[f]<oldest){oldest=s.lruTime[f];os=i;} });
+    victimSlot=os; s.lruTime[page]=Date.now()+Math.random();
+  }
+  s.lastEvt={type:'evict',page,slot:victimSlot,victim:s.frames[victimSlot]};
+  s.frames[victimSlot]=page;
+}
+function renderAlgos(){
+  const minF=Math.min(...ALGOS.map(a=>sim4[a.key].faults));
+  const done = seqPos>=seq.length-1;
+  document.getElementById('algoCols').innerHTML=ALGOS.map(a=>{
+    const s=sim4[a.key];
+    const isBest = done && s.faults===minF;
+    return `<div class="algo">
+      <h4>${a.name}<span class="badge2">${a.badge}</span></h4>
+      <div class="sub">${a.sub}</div>
+      <div class="frames">
+        ${s.frames.map((f,i)=>{
+          let cls='frame'+(f!==null?' filled':'');
+          if(s.lastEvt && s.lastEvt.slot===i && s.lastEvt.type==='evict') cls='frame evict';
+          else if(s.lastEvt && s.lastEvt.slot===i && s.lastEvt.type==='load') cls='frame load';
+          const clk = a.key==='clock' && f!==null ? `<span class="clk">${s.clockRef[f]?'●':'○'}${i===s.clockHand?' ◀':''}</span>`:'';
+          return `<div class="${cls}"><span class="fi">帧${i}</span> ${f===null?'—':f}${clk}</div>`;
+        }).join('')}
+      </div>
+      <div class="faults"><div class="n ${isBest?'best':''}">${s.faults}</div><div class="l">缺页次数${isBest?' 🏆最少':''}</div></div>
+    </div>`;
+  }).join('');
+}
+function step4(){
+  if(seqPos>=seq.length-1) return false;
+  seqPos++; const page=seq[seqPos];
+  ALGOS.forEach(a=>feed(a.key,page));
+  renderSeqChips(); renderAlgos();
+  if(seqPos===seq.length-1) finish4();
+  return true;
+}
+// 记录基线（用于 Bélády 检测）
+let beladyBaseline=null;
+function finish4(){
+  const minF=Math.min(...ALGOS.map(a=>sim4[a.key].faults));
+  // 判定预测
+  const v=document.getElementById('verdict4');
+  if(pred4){
+    const bestKeys=ALGOS.filter(a=>sim4[a.key].faults===minF).map(a=>a.key);
+    const spread=Math.max(...ALGOS.map(a=>sim4[a.key].faults))-minF;
+    let ok=false, actual;
+    if(pred4==='tie'){ ok=spread<=1; actual='三者接近'; }
+    else { ok=bestKeys.includes(pred4)&&bestKeys.length===1;
+      const nm={fifo:'FIFO',clock:'时钟',lru:'LRU'};
+      actual=bestKeys.map(k=>nm[k]).join('/')+' 最少('+minF+'次)'; }
+    v.className='verdict '+(ok?'ok':'no');
+    v.textContent=(ok?'✓ 预测正确！':'✗ 实际是：')+' 本次 '+actual+'。';
+  }
+  checkBelady();
+}
+function checkBelady(){
+  // 用当前序列，在 nFrames 和 nFrames+1 上跑 FIFO，比较缺页
+  const run=(cap)=>{ let fr=[],q=[],flt=0;
+    for(const p of seq){ if(fr.includes(p))continue; flt++;
+      if(fr.length<cap){fr.push(p);q.push(p);} else {const vv=q.shift();fr[fr.indexOf(vv)]=p;q.push(p);} }
+    return flt; };
+  const f1=run(nFrames), f2=run(nFrames+1);
+  const flag=document.getElementById('beladyFlag');
+  if(f2>f1){
+    flag.classList.add('show');
+    flag.innerHTML=`⚠️ 检测到 <b>Bélády 异常</b>！同样这串序列：书架 ${nFrames} 帧 → FIFO 缺页 ${f1} 次；书架加大到 ${nFrames+1} 帧 → 缺页反而升到 ${f2} 次。书架变大，跑腿反而更多——这正是 FIFO 反直觉的怪现象，也是现代系统弃用它的原因。`;
+  }else flag.classList.remove('show');
+}
+document.getElementById('dstep').onclick=()=>{ if(seqPos===-1&&seq.length===0)resetLab4(); step4(); };
+$('drun').onclick=()=>{ if(seqPos>=seq.length-1)resetLab4();
+  const gen=startAnim('algo');
+  const tick=()=>{ if(!alive('algo',gen)) return; if(step4()) schedule('algo',tick,300); }; tick(); };
+document.getElementById('dbelady').onclick=()=>{ document.getElementById('seqInput').value='1,2,3,4,1,2,5,1,2,3,4,5'; resetLab4(); };
+document.getElementById('drand').onclick=()=>{ const a=[]; for(let i=0;i<12;i++)a.push(1+Math.floor(Math.random()*6));
+  document.getElementById('seqInput').value=a.join(','); resetLab4(); };
+document.getElementById('dreset').onclick=()=>resetLab4();
+document.getElementById('seqInput').addEventListener('input',()=>resetLab4());
+document.getElementById('frames').oninput=e=>{ nFrames=+e.target.value; document.getElementById('framesVal').textContent=nFrames+' 帧'; resetLab4(); };
+document.querySelectorAll('#pred4 button').forEach(b=>b.onclick=()=>{ pred4=b.dataset.v;
+  document.querySelectorAll('#pred4 button').forEach(x=>x.classList.remove('picked')); b.classList.add('picked'); });
+resetLab4();
+
+/* ============================================================
+   实验 5：TLB Shootdown 喊话作废
+   ============================================================ */
+let nDisc=16, pred5=null, curScene=0;
+const SCENES=[
+  {name:'撤销某本书的登记(unmap)',icon:'🗑'},
+  {name:'修改权限图章(mprotect)',icon:'🔏'},
+  {name:'清理誊抄本(page reclaim)',icon:'🧹'},
+  {name:'并发式整理(GC compaction)',icon:'🤖'},
+];
+function renderScenes(){
+  document.getElementById('shootScenes').innerHTML=SCENES.map((s,i)=>
+    `<button class="btn ${i===curScene?'':'sec'}" data-i="${i}">${s.icon} ${s.name}</button>`).join('');
+  document.querySelectorAll('#shootScenes button').forEach(b=>b.onclick=()=>{ startAnim('shoot'); curScene=+b.dataset.i; renderScenes(); resetShoot(); });
+}
+// [PERF-02/05] 差量渲染：结构建一次并缓存节点，动画只改 className / 文案，杜绝 per-tick 全量重建与 innerHTML+= 的 O(n²)
+let discNodes=[];            // 缓存 .disc 元素引用
+let discStNodes=[];          // 缓存内部 .st 文案元素
+let discBuiltFor=-1;         // 已构建的 nDisc（避免重复建骨架）
+const ST_CLS={initiator:'initiator',notified:'notified',acked:'acked',idle:''};
+const ST_TXT={initiator:'改牌·发起',notified:'收到喊话',acked:'✓已划掉',idle:'值班中'};
+function buildDisciples(){
+  const el=$('disciples'); const show=Math.min(nDisc,48);
+  const parts=[];  // 一次性拼接，单次解析
+  for(let i=0;i<show;i++){
+    const label=i===0?'徒弟甲':('徒弟'+(i+1));
+    parts.push(`<div class="disc"><div class="av">${i===0?'📣':'🧑'}</div><div>${label}</div><div class="st">值班中</div></div>`);
+  }
+  if(nDisc>show) parts.push(`<div class="disc"><div class="av" style="background:#2b3548">+${nDisc-show}</div><div>其余徒弟</div><div class="st">同样等待</div></div>`);
+  el.innerHTML=parts.join('');   // ← 单次 innerHTML，替代循环 +=
+  discNodes=[...el.children];
+  discStNodes=discNodes.map(n=>n.querySelector('.st'));
+  discBuiltFor=nDisc;
+}
+function renderDisciples(states){
+  if(discBuiltFor!==nDisc) buildDisciples();   // 仅在人数变化时重建骨架
+  const show=Math.min(nDisc,48);
+  for(let i=0;i<show;i++){
+    const st=states?states[i]:(i===0?'initiator':'idle');
+    discNodes[i].className='disc '+ST_CLS[st];  // 仅改类名（触发 CSS transition）
+    discStNodes[i].textContent = i===0?'改牌·发起':ST_TXT[st];
+  }
+}
+function costFor(n){
+  // 模型：发起~0.1μs + 每人1.6μs但并行广播，等最慢；用文档区间：16人~5-20μs,128人~50-100μs
+  // 线性内插取中值：约 0.1 + n*0.75 μs（16→~12, 128→~96）
+  return (0.1 + n*0.72);
+}
+function resetShoot(){
+  document.getElementById('mScene').textContent='—';
+  document.getElementById('mTotal').textContent='—';
+  document.getElementById('mAck').textContent='0/'+nDisc;
+  renderDisciples(null);
+}
+$('discCount').oninput=e=>{ startAnim('shoot'); nDisc=+e.target.value; $('discVal').textContent=nDisc+' 人';
+  $('mAck').textContent='0/'+nDisc; resetShoot(); checkVerdict5(); };
+function checkVerdict5(){
+  if(pred5===null) return;
+  const v=document.getElementById('verdict5');
+  if(pred5==='up'){ v.className='verdict ok';
+    v.textContent='✓ 预测正确！广播虽快，但发起方必须等最慢的人，人越多总耗时越大：4人≈'+costFor(4).toFixed(1)+'μs → 128人≈'+costFor(128).toFixed(0)+'μs。'; }
+  else{ v.className='verdict no';
+    v.textContent='✗ 其实会明显变大——瓶颈是“等所有人回收到”，而不是广播本身。128人≈'+costFor(128).toFixed(0)+'μs。'; }
+}
+document.querySelectorAll('#pred5 button').forEach(b=>b.onclick=()=>{ pred5=b.dataset.v;
+  document.querySelectorAll('#pred5 button').forEach(x=>x.classList.remove('picked')); b.classList.add('picked'); checkVerdict5(); });
+$('shootBtn').onclick=()=>{
+  const gen=startAnim('shoot');   // [PERF-01] 令牌：接管上一次未完成的动画，杜绝并发链污染结果
+  const states=new Array(nDisc).fill('idle'); states[0]='initiator';
+  $('mScene').textContent=SCENES[curScene].icon+' '+SCENES[curScene].name;
+  $('mScene').style.fontSize='13px';
+  renderDisciples(states);
+  const others=[]; for(let i=1;i<nDisc;i++)others.push(i);
+  schedule('shoot',()=>{ if(!alive('shoot',gen)) return;
+    others.forEach(i=>states[i]='notified'); renderDisciples(states);
+    $('mAck').textContent='0/'+nDisc;
+    // 逐个确认（可见范围内动画，超出的直接完成）
+    let acked=0; const visible=Math.min(nDisc-1,47); let k=0;
+    const tick=()=>{ if(!alive('shoot',gen)) return;
+      if(k<visible){ states[others[k]]='acked'; acked++; k++;
+        $('mAck').textContent=acked+'/'+nDisc; renderDisciples(states);
+        schedule('shoot',tick,Math.max(30,300/visible));
+      }else{
+        for(let i=0;i<others.length;i++) states[others[i]]='acked';
+        renderDisciples(states);
+        $('mAck').textContent=(nDisc-1)+'/'+nDisc;
+        $('mTotal').textContent='≈ '+costFor(nDisc).toFixed(nDisc<10?1:0)+' μs';
+        checkVerdict5();
+      }
+    }; tick();
+  },350);
+};
+function resetShootFull(){ startAnim('shoot'); resetShoot(); }
+$('shootReset').onclick=resetShootFull;
+renderScenes(); resetShoot();
+
+/* ============================================================
+   实验 6：二房东双层翻译 (EPT/NPT)
+   ============================================================ */
+let walkMode='single', walkStep=-1, walkPlan=[], pred6=null;
+// 二房东层级(行)与老王转换(列)
+const TENANT_ROWS=[
+  {k:'root', label:'二房东根表(GPA)'},
+  {k:'l4',   label:'二房东 L4 大区牌'},
+  {k:'l3',   label:'二房东 L3 中区牌'},
+  {k:'l2',   label:'二房东 L2 小区牌'},
+  {k:'l1',   label:'二房东 L1 登记卡'},
+];
+const HOST_COLS=['老王EPT L4','老王EPT L3','老王EPT L2','老王EPT L1'];
+
+function buildWalkPlan(){
+  // 每个 step = {row, col} 表示一次真实访存动作
+  walkPlan=[];
+  if(walkMode==='single'){
+    // 单层：只有老王4级(用一行表达)，4次
+    for(let c=0;c<4;c++) walkPlan.push({single:true,col:c});
+  }else if(walkMode==='tlb'){
+    walkPlan.push({tlb:true});
+  }else{
+    // nested：5个二房东节点(含root) × 每个4级老王转换 = 20次；此处含root计24次
+    TENANT_ROWS.forEach((r,ri)=>{ for(let c=0;c<4;c++) walkPlan.push({row:ri,col:c}); });
+  }
+}
+function renderWalk(){
+  const g=document.getElementById('walkGrid');
+  if(walkMode==='tlb'){
+    g.style.gridTemplateColumns='1fr';
+    const done=walkStep>=0;
+    g.innerHTML=`<div class="wc ${done?'done cur':''}" style="min-height:90px;font-size:13px">
+      ${done?'📓 小本本(TLB)<small style="display:block">命中！房客编号 → 真实坐标</small>直接返回，跳过全部中间环节':'点“走表”查小本本…'}
+    </div>`;
+    return;
+  }
+  if(walkMode==='single'){
+    g.style.gridTemplateColumns='150px repeat(4,1fr)';
+    let html='<div class="cellh" style="background:transparent"></div>'+HOST_COLS.map(h=>`<div class="cellh">${h}</div>`).join('');
+    html+='<div class="rowh">🧑 老王4级页表</div>';
+    for(let c=0;c<4;c++){
+      const idx=walkPlan.findIndex(p=>p.col===c);
+      const cls = idx<walkStep?'done': idx===walkStep?'cur done':'';
+      html+=`<div class="wc ${cls} ${c===3?'final':''}">${idx<=walkStep?`第${idx+1}次<small>${c===3?'取登记卡→真坐标':'查页表'}</small>`:'—'}</div>`;
+    }
+    g.innerHTML=html; return;
+  }
+  // nested
+  g.style.gridTemplateColumns='150px repeat(4,1fr)';
+  let html='<div class="cellh" style="background:transparent">二房东↓ / 老王→</div>'+HOST_COLS.map(h=>`<div class="cellh">${h}</div>`).join('');
+  TENANT_ROWS.forEach((r,ri)=>{
+    html+=`<div class="rowh">🏢 ${r.label}</div>`;
+    for(let c=0;c<4;c++){
+      const idx=walkPlan.findIndex(p=>p.row===ri&&p.col===c);
+      const cls = idx<walkStep?'done': idx===walkStep?'cur done':'';
+      const last = (ri===TENANT_ROWS.length-1 && c===3);
+      let inner='·';
+      if(idx<=walkStep){ inner = '#'+(idx+1) + (last?'<small>真实坐标!</small>':'<small>GPA→HPA</small>'); }
+      html+=`<div class="wc ${cls} ${last?'final':''}">${inner}</div>`;
+    }
+  });
+  g.innerHTML=html;
+}
+function walkTotal(){ return walkMode==='single'?4: walkMode==='tlb'?1:24; }
+function resetWalk(){ startAnim('walk'); walkStep=-1; buildWalkPlan(); renderWalk();
+  $('walkResult').style.display='none'; }
+function stepWalk(){
+  if(walkStep>=walkPlan.length-1) return false;
+  walkStep++; renderWalk();
+  if(walkStep===walkPlan.length-1) finishWalk();
+  return true;
+}
+function finishWalk(){
+  const box=document.getElementById('walkResult');
+  const n=walkTotal();
+  box.style.display='block';
+  const lbl={single:'单层翻译完成 · 共走',nested:'二房东双层翻译完成 · 共走',tlb:'小本本命中 · 仅走'}[walkMode];
+  document.getElementById('walkResLbl').textContent=lbl;
+  document.getElementById('walkResN').textContent=n+' 次真实动作';
+  // 判定预测（仅 nested 有意义，但任意模式跑完都尝试）
+  if(pred6!==null){
+    const v=document.getElementById('verdict6');
+    const nestedN=24;
+    if(pred6==='20'){ v.className='verdict ok'; v.textContent='✓ 预测正确！双层翻译最坏 20~24 次（本模拟按含根表的 24 次口径），是单层的约 6 倍。'; }
+    else{ v.className='verdict no'; v.textContent='✗ 其实高达 20~24 次！二房东每级指针都要老王再转 4 级，5×4=20，加根表共 24——远不止翻倍。'; }
+  }
+}
+document.getElementById('wstep').onclick=()=>{ if(walkStep>=walkPlan.length-1) resetWalk(); stepWalk(); };
+$('wrun').onclick=()=>{ if(walkStep>=walkPlan.length-1) resetWalk();
+  const gen=startAnim('walk');
+  const tick=()=>{ if(!alive('walk',gen)) return; if(stepWalk()) schedule('walk',tick, walkMode==='nested'?140:350); }; tick(); };
+document.getElementById('wreset').onclick=resetWalk;
+document.querySelectorAll('#modeTabs button').forEach(b=>b.onclick=()=>{
+  walkMode=b.dataset.m;
+  document.querySelectorAll('#modeTabs button').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+  resetWalk();
+});
+document.querySelectorAll('#pred6 button').forEach(b=>b.onclick=()=>{ pred6=b.dataset.v;
+  document.querySelectorAll('#pred6 button').forEach(x=>x.classList.remove('picked')); b.classList.add('picked'); });
+resetWalk();
+
+/* ============================================================
+   导航高亮 + 当前实验追踪
+   ============================================================ */
+const links=[...document.querySelectorAll('.navlink')];
+const secs=links.map(l=>document.querySelector(l.getAttribute('href')));
+let activeLab=0; // 0-based：当前视口内的实验
+function setActive(idx){ if(idx===activeLab) return; activeLab=idx;
+  links.forEach((l,i)=>l.classList.toggle('on',i===idx)); }
+// [PERF-03] 用 IntersectionObserver 取代未节流的 scroll+getBoundingClientRect，消除布局抖动
+if('IntersectionObserver' in window){
+  const vis=new Map();
+  const io=new IntersectionObserver(entries=>{
+    entries.forEach(e=>vis.set(e.target, e.isIntersecting?e.intersectionRatio:0));
+    // 选可见比例最高（并列时取靠前）的实验为当前
+    let best=0, bestR=-1;
+    secs.forEach((s,i)=>{ const r=vis.get(s)||0; if(r>bestR){bestR=r;best=i;} });
+    setActive(best);
+  },{threshold:[0,.15,.35,.6,1], rootMargin:'-56px 0px 0px 0px'});
+  secs.forEach(s=>{ if(s) io.observe(s); });
+}else{
+  // 降级：rAF 节流的 scroll（老浏览器兜底）
+  let ticking=false;
+  window.addEventListener('scroll',()=>{ if(ticking) return; ticking=true;
+    requestAnimationFrame(()=>{ let idx=0; secs.forEach((s,i)=>{ if(s && s.getBoundingClientRect().top<160) idx=i; });
+      setActive(idx); ticking=false; }); },{passive:true});
+}
+links.forEach((l,i)=>l.classList.toggle('on',i===0));
+
+/* ============================================================
+   Toast 轻提示
+   ============================================================ */
+let toastTimer=null;
+function toast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+/* ============================================================
+   键盘快捷键：← → 步进 / Space 播放，作用于当前可见实验
+   ============================================================ */
+// 每个实验的 step / play 按钮（有则驱动，无则忽略）
+const LAB_CTRL=[
+  {step:'stepBtn', play:'autoBtn'},   // ① 地址翻译
+  {play:'localRun'},                  // ② 缺页沙盘（无单步，Space=跑局部性序列）
+  {play:'forkBtn'},                   // ③ 写时复制（Space=fork）
+  {step:'dstep',   play:'drun'},      // ④ 置换对决
+  {play:'shootBtn'},                  // ⑤ 喊话作废（Space=发起）
+  {step:'wstep',   play:'wrun'},      // ⑥ 双层翻译
+];
+function clickIf(id){ const el=id&&document.getElementById(id); if(el&&!el.disabled){ el.click(); return true; } return false; }
+document.addEventListener('keydown',e=>{
+  const tag=(e.target.tagName||'').toLowerCase();
+  if(tag==='input'||tag==='textarea'||tag==='select') return; // 输入时不拦截
+  const c=LAB_CTRL[activeLab]||{};
+  if(e.key==='ArrowRight'){ if(clickIf(c.step)) e.preventDefault(); }
+  else if(e.key==='ArrowLeft'){
+    // 仅实验①④⑥ 有明确“上一步”概念；这里用重置+提示替代（逐步逻辑单向）
+    if(c.step){ e.preventDefault(); toast('本实验为单向步进，按 → 继续或用“重置”重来'); }
+  }
+  else if(e.key===' '||e.code==='Space'){ if(clickIf(c.play)) e.preventDefault(); }
+});
+
+/* ============================================================
+   📷 截图：将当前实验的 .panel 转为 PNG（SVG foreignObject，无外部库）
+   ============================================================ */
+function labPanel(){
+  const sec=secs[activeLab]; return sec? sec.querySelector('.panel'):null;
+}
+// [PERF-04] 只抓取一次页面 CSS，内嵌进 SVG，保留 class —— 彻底移除逐节点 getComputedStyle 递归
+let _pageCSS=null;
+function pageCSS(){
+  if(_pageCSS!=null) return _pageCSS;
+  const st=document.querySelector('style');
+  _pageCSS = st? st.textContent : '';
+  return _pageCSS;
+}
+function escXML(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+async function screenshot(){
+  const node=labPanel();
+  if(!node){ toast('未找到当前实验面板'); return; }
+  toast('正在生成截图…');
+  try{
+    const rect=node.getBoundingClientRect();
+    const w=Math.ceil(rect.width), h=Math.ceil(rect.height);
+    // 直接克隆（保留 class），XHTML 序列化，一次性内嵌全站 CSS
+    const clone=node.cloneNode(true);
+    let xml=new XMLSerializer().serializeToString(clone);
+    // 复杂/大面板降采样，兼顾清晰度与内存
+    const scale = (w*h>1200*900)?1.5:2;
+    const css=escXML(pageCSS());
+    let svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">`+
+      `<rect width="100%" height="100%" fill="#0d1117"/>`+
+      `<foreignObject width="100%" height="100%">`+
+      `<div xmlns="http://www.w3.org/1999/xhtml"><style>${css}</style>${xml}</div>`+
+      `</foreignObject></svg>`;
+    xml=null; // 释放大字符串引用，助 GC
+    const blob=new Blob([svg],{type:'image/svg+xml;charset=utf-8'}); svg=null;
+    const url=URL.createObjectURL(blob);
+    const img=new Image();
+    img.onload=()=>{
+      const cv=document.createElement('canvas');
+      cv.width=Math.round(w*scale); cv.height=Math.round(h*scale);
+      const ctx=cv.getContext('2d'); ctx.scale(scale,scale);
+      ctx.fillStyle='#0d1117'; ctx.fillRect(0,0,w,h);
+      ctx.drawImage(img,0,0);
+      URL.revokeObjectURL(url);
+      cv.toBlob(b=>{
+        const a=document.createElement('a');
+        a.href=URL.createObjectURL(b);
+        a.download='虚拟内存实验'+(activeLab+1)+'.png';
+        a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+        toast('✅ 截图已下载');
+      },'image/png');
+    };
+    img.onerror=()=>{ URL.revokeObjectURL(url); toast('⚠️ 截图失败，可尝试用浏览器自带截屏'); };
+    img.src=url;
+  }catch(err){ toast('⚠️ 截图失败：'+err.message); }
+}
+$('bScreenshot').onclick=screenshot;
+
+/* ============================================================
+   🔗 分享链接：把当前实验 + 关键输入编码进 URL；打开时自动回填
+   ============================================================ */
+function collectState(){
+  return {
+    lab:activeLab+1,
+    va:document.getElementById('va').value,
+    warm:document.getElementById('tlbWarm').checked?1:0,
+    cap:document.getElementById('capacity').value,
+    seq:document.getElementById('seqInput').value,
+    fr:document.getElementById('frames').value,
+    disc:document.getElementById('discCount').value,
+    scene:curScene,
+    mode:walkMode,
+  };
+}
+function buildShareURL(){
+  const s=collectState();
+  const q=new URLSearchParams();
+  Object.entries(s).forEach(([k,v])=>q.set(k,v));
+  return location.origin+location.pathname+'#lab'+s.lab+'?'+q.toString();
+}
+async function share(){
+  const url=buildShareURL();
+  try{
+    await navigator.clipboard.writeText(url);
+    toast('🔗 分享链接已复制到剪贴板');
+  }catch(e){
+    // 退化方案
+    const ta=document.createElement('textarea'); ta.value=url; document.body.appendChild(ta);
+    ta.select(); try{document.execCommand('copy'); toast('🔗 分享链接已复制');}catch(_){toast('复制失败，请手动复制地址栏');}
+    document.body.removeChild(ta);
+  }
+  // 同步更新地址栏，方便直接复制
+  history.replaceState(null,'','#lab'+collectState().lab+'?'+new URLSearchParams(collectState()).toString());
+}
+document.getElementById('bShare').onclick=share;
+
+// 页面加载时解析 URL 状态并回填
+function restoreState(){
+  const h=location.hash; if(!h.includes('?')) return;
+  const qs=h.split('?')[1]; const p=new URLSearchParams(qs);
+  const setV=(id,key)=>{ if(p.has(key)){ const el=document.getElementById(id); if(el){ el.value=p.get(key); el.dispatchEvent(new Event('input')); } } };
+  if(p.has('va')) setV('va','va');
+  if(p.has('warm')){ const el=document.getElementById('tlbWarm'); el.checked=p.get('warm')==='1'; el.dispatchEvent(new Event('change')); }
+  if(p.has('cap')){ const el=document.getElementById('capacity'); el.value=p.get('cap'); el.dispatchEvent(new Event('input')); }
+  if(p.has('seq')) setV('seqInput','seq');
+  if(p.has('fr')){ const el=document.getElementById('frames'); el.value=p.get('fr'); el.dispatchEvent(new Event('input')); }
+  if(p.has('disc')){ const el=document.getElementById('discCount'); el.value=p.get('disc'); el.dispatchEvent(new Event('input')); }
+  if(p.has('scene')){ curScene=+p.get('scene')||0; renderScenes(); resetShoot(); }
+  if(p.has('mode')){ const btn=document.querySelector('#modeTabs button[data-m="'+p.get('mode')+'"]'); if(btn) btn.click(); }
+  const lab=(h.match(/lab(\d)/)||[])[1];
+  if(lab){ const sec=document.getElementById('lab'+lab); if(sec) setTimeout(()=>sec.scrollIntoView({behavior:'smooth'}),120); }
+  toast('已按分享链接恢复实验状态');
+}
+restoreState();
+</script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a175a9b7ab8ad780',t:'MTc4MzQxNDg2OQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
