@@ -49,13 +49,17 @@
 
 [▶ 打开工具](https://imzhiya.github.io/cs-visual-tools/virtual-memory-lab.html)
 
+### ♻️ JVM 运行时机制实验室 · Runtime Lab
+对齐《JVM 运行时机制深度解析》六环因果链：厂区五区与类加载、对象布局/TLAB、GC Roots 与三色/CMS/G1/ZGC、JIT/Safepoint、锁升级与可见性、容器 cgroup 与选型诊断。支持截图与分享链接。
+
+[▶ 打开工具](https://imzhiya.github.io/cs-visual-tools/jvm-runtime-lab.html)
+
 ---
 
 ## 🚧 即将上线 · Coming Soon
 
 | 工具 | 状态 | 说明 |
 |------|------|------|
-| ♻️ JVM GC Lab | 🔄 开发中 | JVM 垃圾回收机制逐步动画演示 |
 | 📊 Sort Arena | 🔄 开发中 | 十大排序算法对比动画 |
 | 🗺️ HashMap Lab | 🔄 开发中 | JDK HashMap 底层逐步可视化 |
 
