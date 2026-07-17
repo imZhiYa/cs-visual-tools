@@ -5,9 +5,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <title>CS 可视化工具合集 · Visual CS Tools</title>
-  <meta name="description" content="计算机科学核心知识交互式可视化学习工具合集：树形数据结构、二进制位运算、虚拟内存、JVM 垃圾回收等">
+  <meta name="description" content="计算机科学核心知识交互式可视化学习工具合集：树形数据结构、二进制位运算、虚拟内存、JVM 运行时机制等">
   <meta name="author" content="ZhiYa">
-  <meta name="keywords" content="计算机科学,数据结构,算法,可视化,交互式学习,树,红黑树,位运算,虚拟内存,页表,JVM">
+  <meta name="keywords" content="计算机科学,数据结构,算法,可视化,交互式学习,树,红黑树,位运算,虚拟内存,页表,JVM,运行时,GC,类加载,JIT">
   <link rel="icon"
     href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧪</text></svg>">
   <meta property="og:title" content="CS 可视化工具合集 · Visual CS Tools">
@@ -377,28 +377,30 @@
       <a class="card-link" href="virtual-memory-lab.html">▶ 打开工具</a>
     </div>
 
+    <!-- Tool 4: JVM Runtime Lab -->
+    <div class="card">
+      <span class="card-status status-live">✅ 已上线</span>
+      <div class="card-icon">♻️</div>
+      <h2>JVM 运行时机制实验室 · Runtime Lab</h2>
+      <p>对齐《JVM 运行时机制深度解析》六环因果链：厂区五区与类加载、对象布局/TLAB、GC Roots 与三色/CMS/G1/ZGC、JIT/Safepoint、锁升级与可见性、容器 cgroup 与选型诊断。</p>
+      <div class="card-tags">
+        <span class="tag">类加载</span>
+        <span class="tag tag-or">TLAB</span>
+        <span class="tag tag-pp">GC Roots</span>
+        <span class="tag tag-gn">G1/ZGC</span>
+        <span class="tag tag-yl">锁升级</span>
+        <span class="tag">cgroup</span>
+      </div>
+      <a class="card-link" href="jvm-runtime-lab.html">▶ 打开工具</a>
+    </div>
+
   </div>
 
   <div class="section-title">开发中</div>
 
   <div class="grid">
 
-    <!-- Tool 3: JVM GC (Coming Soon) -->
-    <div class="card">
-      <span class="card-status status-soon">🚧 开发中</span>
-      <div class="card-icon">♻️</div>
-      <h2>JVM 垃圾回收可视化 · JVM GC Lab</h2>
-      <p>Java 虚拟机垃圾回收机制的逐步动画演示。堆内存分代结构、对象分配与晋升、GC Roots 可达性分析、标记-清除/复制/整理算法对比。</p>
-      <div class="card-tags">
-        <span class="tag">Young Gen</span>
-        <span class="tag tag-or">Old Gen</span>
-        <span class="tag tag-pp">GC Roots</span>
-        <span class="tag tag-gn">标记清除</span>
-      </div>
-      <span class="card-soon">🚧 即将上线</span>
-    </div>
-
-    <!-- Tool 4: Sort Visualizer (Coming Soon) -->
+    <!-- Tool: Sort Visualizer (Coming Soon) -->
     <div class="card">
       <span class="card-status status-soon">🚧 开发中</span>
       <div class="card-icon">📊</div>
@@ -413,7 +415,7 @@
       <span class="card-soon">🚧 即将上线</span>
     </div>
 
-    <!-- Tool 5: HashMap (Coming Soon) -->
+    <!-- Tool: HashMap (Coming Soon) -->
     <div class="card">
       <span class="card-status status-soon">🚧 开发中</span>
       <div class="card-icon">🗺️</div>
