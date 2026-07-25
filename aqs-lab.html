@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>AQS 核心机制实验室</title>
+<style>
+:root{--bg:#07111f;--panel:#0d1b2d;--panel2:#10253b;--line:#24415d;--text:#e8f1fb;--muted:#91a8be;--cyan:#42d7ff;--green:#57e39a;--orange:#ffbd69;--red:#ff7187;--purple:#bd9aff;--shadow:0 16px 50px #02091488}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(circle at 70% -20%,#183753 0,#07111f 48%,#050b14 100%);color:var(--text);font:14px/1.65 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}button,input{font:inherit}button{cursor:pointer;color:var(--text);border:1px solid var(--line);background:#11263b;border-radius:9px;padding:8px 13px;transition:.16s}button:hover{border-color:var(--cyan);transform:translateY(-1px)}button.primary{background:linear-gradient(135deg,#12617c,#174b72);border-color:#36bde4}button.warn{border-color:#8c6138;background:#3d2b1c}.shell{max-width:1440px;margin:auto;padding:28px 24px 60px}.top{display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:20px}.eyebrow{color:var(--cyan);font-weight:700;letter-spacing:.12em;font-size:12px}.title{font-size:clamp(28px,4vw,48px);line-height:1.12;margin:6px 0 10px;letter-spacing:-.04em}.subtitle{color:var(--muted);max-width:850px;margin:0}.badge{padding:9px 12px;border:1px solid #2d5872;border-radius:999px;background:#0b2031;color:#9feaff;white-space:nowrap}.roadmap{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:22px 0}.roadmap button{text-align:left;min-height:67px;background:#0b1828;color:var(--muted)}.roadmap button.active{background:linear-gradient(160deg,#123b52,#11253a);color:var(--text);border-color:var(--cyan);box-shadow:0 0 0 1px #42d7ff33 inset}.roadmap b{display:block;color:var(--cyan);font-size:12px}.roadmap span{font-size:13px}.layout{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(320px,.85fr);gap:16px}.card{background:linear-gradient(155deg,#0d1b2d,#091625);border:1px solid #1b354d;border-radius:16px;box-shadow:var(--shadow);overflow:hidden}.cardhead{padding:18px 20px 12px;border-bottom:1px solid #193149}.cardhead h2{margin:0 0 4px;font-size:19px}.cardhead p{margin:0;color:var(--muted)}.stage{padding:20px}.prompt{background:#0a2635;border:1px solid #1e627a;border-radius:12px;padding:14px 16px;margin-bottom:16px}.prompt strong{color:#8beaff}.factory{position:relative;min-height:300px;border:1px solid #21445c;border-radius:14px;background:linear-gradient(180deg,#0a1b2c,#091523);padding:18px;overflow:hidden}.factory:before{content:"CORE WORKSTATION";position:absolute;top:13px;right:15px;color:#47718c;font:10px ui-monospace,monospace;letter-spacing:.12em}.station{margin:28px auto 26px;width:min(430px,90%);text-align:center;border:1px solid #956b39;border-radius:12px;padding:15px;background:linear-gradient(135deg,#30251a,#171c25);box-shadow:0 0 35px #d7963020}.station .state{font:700 22px ui-monospace,monospace;color:var(--orange);margin:3px}.owner{color:var(--muted);font-size:12px}.queue-title{color:#6d94ac;font-size:11px;letter-spacing:.1em;margin:15px 0 7px}.queue{display:flex;align-items:center;gap:7px;min-height:68px;padding:12px;border:1px dashed #2b5870;border-radius:11px;overflow:auto}.node{min-width:94px;padding:9px 10px;text-align:center;border:1px solid #356078;border-radius:10px;background:#112a40;position:relative;animation:pop .25s ease}.node:after{content:"←";position:absolute;left:-18px;top:20px;color:#4e7d98}.node:first-child:after{display:none}.node b{display:block}.node small{color:var(--muted);font-size:10px}.node.head{border-color:var(--purple);background:#231f43}.node.current{border-color:var(--green);background:#123a34;box-shadow:0 0 0 2px #57e39a33}.node.cancel{border-color:var(--red);background:#3b1d2a;opacity:.7;text-decoration:line-through}.node.condition{border-color:var(--orange);background:#382a1b}.arrowlabel{color:#7895a9;font-size:20px}.mini-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.chain-panel{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.chain-box{border:1px solid #21445c;border-radius:10px;padding:10px;background:#081827}.chain-box h4{font-size:11px;margin:0 0 7px;color:#8bdcf2;letter-spacing:.08em}.chain-line{font:12px/1.7 ui-monospace,SFMono-Regular,Consolas,monospace;color:#c6e9f2;word-break:break-word}.chain-line em{font-style:normal;color:#ffbd69}.chain-line .muted{color:#6d899c}@media(max-width:560px){.chain-panel{grid-template-columns:1fr}}.legend{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin-top:14px}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;background:var(--cyan)}.dot.g{background:var(--green)}.dot.o{background:var(--orange)}.dot.r{background:var(--red)}.dot.p{background:var(--purple)}.controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:17px}.progress{height:5px;background:#12283b;border-radius:5px;margin-top:16px;overflow:hidden}.progress i{display:block;height:100%;background:linear-gradient(90deg,var(--cyan),var(--green));transition:.25s}.side{display:flex;flex-direction:column;gap:16px}.table{width:100%;border-collapse:collapse}.table td{padding:8px 0;border-bottom:1px solid #183149;vertical-align:top}.table td:first-child{color:var(--muted);width:42%}.value{font-family:ui-monospace,monospace;color:#b5f2ff}.check-title{margin:16px 0 7px;color:#8bdcf2;font-size:12px;letter-spacing:.08em}.check{padding:5px 0;color:#9ee4c7;font-size:12px}.check.bad{color:#ff9aaa}.explain{padding:18px 20px}.step-title{display:flex;justify-content:space-between;align-items:center;gap:12px}.step-title h3{margin:0;font-size:17px}.count{color:var(--cyan);font:12px ui-monospace,monospace}.explain p{margin:11px 0;color:#c6d5e2}.code{background:#06101b;border:1px solid #183149;border-radius:10px;padding:12px 14px;white-space:pre-wrap;color:#b6e7f2;font:12px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace}.invariant{border-left:3px solid var(--green);background:#102c2a;padding:10px 12px;color:#b8efd8;border-radius:0 8px 8px 0}.side h3{margin:0 0 9px}.chips{display:flex;gap:7px;flex-wrap:wrap}.chip{border:1px solid #28516b;color:#9bc9dc;border-radius:999px;padding:4px 8px;font-size:12px;background:#0a1c2b}.timeline{padding:16px 20px}.timeline ol{margin:0;padding:0;list-style:none;display:flex;gap:5px;overflow:auto}.timeline li{min-width:82px;border-top:2px solid #29516b;padding-top:7px;color:#708da3;font-size:11px}.timeline li.active{border-color:var(--cyan);color:var(--text)}.site-footer{margin-top:48px;padding:24px 12px 8px;border-top:1px solid #1c2a39;text-align:center;color:#758397}.footer-actions{display:flex;justify-content:center;gap:10px;margin-bottom:22px}.footer-actions button{background:#101a28;border-color:#26384d;color:#c3cfdd;font-size:12px;padding:8px 14px}.footer-actions button:hover{border-color:var(--cyan);color:#e9faff}.bottom-promo{color:#a8b2c0;font-size:13px;line-height:1.7}.bottom-promo .sub{display:block;color:#7f8998;font-size:12px}.license{margin-top:16px;font-size:12px;color:#778396}.license a{color:#56a9ff;text-decoration:none}.license a:hover{text-decoration:underline}@media(max-width:560px){.footer-actions{flex-wrap:wrap;margin-bottom:16px}.bottom-promo{font-size:12px}.bottom-promo .sub{font-size:11px}}@keyframes pop{from{transform:scale(.9);opacity:.2}to{transform:none;opacity:1}}@media(max-width:900px){.layout{grid-template-columns:1fr}.roadmap{grid-template-columns:repeat(3,1fr)}}@media(max-width:560px){.shell{padding:20px 12px 40px}.top{display:block}.badge{display:inline-block;margin-top:15px}.roadmap{grid-template-columns:repeat(2,1fr)}.roadmap button{min-height:58px}.factory{padding:12px}.station{margin-top:28px}.node{min-width:82px}}
+</style>
+</head>
+<body>
+<main class="shell">
+<header class="top"><div><div class="eyebrow">⑤-AQS / SYNCHRONIZER LABORATORY</div><h1 class="title">AQS 核心机制实验室</h1><p class="subtitle">沿着徒弟线程 B 的一次等待，逐步观察：资源账本、CLH 变体队列、dummy head、Condition、共享传播与取消协议如何协同。</p></div><div class="badge">零依赖 · 单步教学 · 教学抽象 + 版本边界标注</div></header>
+<nav class="roadmap" id="roadmap"></nav>
+<section class="layout">
+<div class="card"><div class="cardhead"><h2 id="moduleTitle"></h2><p id="moduleDesc"></p></div><div class="stage"><div class="prompt"><strong id="promptLabel">先预测：</strong> <span id="prompt"></span></div><div class="factory" id="factory"></div><div class="legend"><span><i class="dot"></i>等待者</span><span><i class="dot g"></i>当前步骤</span><span><i class="dot o"></i>资源账本</span><span><i class="dot r"></i>取消 / 废号</span><span><i class="dot p"></i>进度游标</span></div><div class="controls"><button class="primary" id="prev">← 上一步</button><button class="primary" id="next">下一步 →</button><button id="play">⏩ 自动播放</button><button id="reset">↺ 重置</button></div><div class="progress"><i id="bar"></i></div></div><div class="timeline"><ol id="timeline"></ol></div></div>
+<aside class="side"><div class="card explain"><div class="step-title"><h3 id="stepTitle"></h3><span class="count" id="count"></span></div><p id="stepText"></p><div class="code" id="code"></div><div class="invariant" id="invariant"></div></div><div class="card explain"><h3>当前状态账本</h3><table class="table" id="stateTable"></table><div class="check-title">协议不变量检查</div><div id="checks"></div></div><div class="card explain"><h3>本模块关键对象</h3><div class="chips" id="chips"></div></div></aside>
+</section><footer class="site-footer"><div class="footer-actions"><button id="captureBtn">▣ 截图当前实验</button><button id="shareBtn">🔗 复制分享链接</button></div><div class="bottom-promo">📖 基于《AQS 核心机制深度解析》 · 从“静态图解”升级为“可动手验证的同步协议实验室”<span class="sub">先预测 · 后操作 · 看状态 · 对原理</span></div><div class="license">MIT License · © 2026 <a href="https://github.com/imzhiya" target="_blank" rel="noreferrer">ZhiYa</a></div></footer>
+</main>
+<script>
+const modules=[
+{id:'exclusive',tag:'L1–L3',title:'独占获取：从围攻工位到前驱接力',desc:'教学抽象：展示 AQS 借鉴 CLH/MCS 思想的阻塞队列协议；不是原始 CLH 自旋锁，也不是某个 JDK 私有源码逐行复刻。',prompt:'B、C 如何在第一次竞争中完成 dummy head、tail CAS、prev/next 建链？',chips:['state','tryAcquire','dummy head','tail CAS','prev 资格/回溯','next 快链','park','unpark','非公平插队'],steps:[
+['T0 · 没有队列','A 持有工位，B 到门口。无竞争时 AQS 不预建 Node、head、tail。','state=1; owner=A\nhead=null; tail=null','无竞争快路径不创建队列。'],
+['T1 · B 失败入慢路','B.tryAcquire 失败，停止围攻 state，进入 enq。','tryAcquire(B) → false\nenq(B)','失败者转入排队协议。'],
+['T2 · 懒初始化竞争','B 发现 tail=null；如果 C 也同时发现 null，二者都竞争创建 H，只有一个成功。','CAS(head, null, H)\n失败者重读 head/tail','dummy head 由第一次真实竞争触发。'],
+['T3 · H 成为队列边界','经典教学图中，成功者令 tail=head=H。H 不持有资源，只是哨兵和进度边界。','head=H; tail=H','H 不是 owner。JDK 21 私有 Node/status 组织已演进。'],
+['T4 · B 先写 prev','B 先把 prev 指向 H，再尝试提交 tail；这让入队成功后立刻拥有回溯线。','B.prev=H','先建 prev，再提交队尾。'],
+['T5 · B 提交入队','B CAS(tail,H,B) 成功，B 正式成为队尾；此时 H.next 可能还没补。','CAS(tail,H,B) → success\nhead=H; tail=B','tail CAS 是入队线性化点。'],
+['T6 · 补 H.next','B 完成提交后补 H.next=B。next 是正常释放时的快速叫号链。','H.next=B','next 可以迟到，不能承担唯一正确性。'],
+['T7 · C 与 B 竞争队尾','C 和 B 可能同时入队。若 C 看到 tail=H，而 B 先提交，C 的 CAS(tail,H,C) 会失败。','C.prev=H\nCAS(tail,H,C) → fail','CAS 失败不是丢失，而是重新读队尾。'],
+['T8 · C 重读并重试','C 读到 tail=B，改写 C.prev=B，再提交 CAS(tail,B,C)。','C.prev=B\nCAS(tail,B,C) → success','并发入队靠重试，不靠一次普通链表插入。'],
+['T9 · 补 B.next','C 正式入队后，补 B.next=C；现在两条链都完整。','B.next=C\nH ← B ← C','prev 用于资格/回溯，next 用于快速叫号。'],
+['T10 · B 握手后 park','B 还不能拿工位，先表达等待意图，再进入 park。','B expresses WAITING\npark(B)','先承诺再睡，防止丢叫号。'],
+['T11 · A 释放叫醒 B','A 把 state 置零，沿 next 找到 B 并 unpark；这只是重试机会。','state:1→0\nunpark(B)','unpark 不转移所有权。'],
+['T12 · 非公平路人抢先','N 可能在 B 真正运行前先 CAS 成功；B 醒来后 acquire 失败，继续等待。','N.tryAcquire → success\nB.tryAcquire → fail','排第一 ≠ 已拥有资源。'],
+['T13 · B 最终接班','下一次 B 获得重试机会并成功，B 成为新 head，旧 H 断开。','B.tryAcquire:0→1\nhead=B; B.prev=null','head 是进度游标，owner 是资源持有者。'],
+['T14 · C 继续等 B','B.next=C，C.prev=B；下一轮交班以 B 为前驱。','head=B; tail=C\nB.next=C; C.prev=B','队列管理靠局部交班，不靠全员广播。'] ]},
+{id:'condition',tag:'L4',title:'Condition：两本登记册之间的完整迁移',desc:'正门 SyncQueue 等资源资格，侧门 ConditionQueue 等 predicate；B 必须在两本册子之间迁移，而不是抱着锁等待。',prompt:'signal 后 B 为什么还没有锁？while 失败后又会去哪里？',chips:['predicate','ConditionQueue','savedState','fullyRelease','signal','SyncQueue','reacquire','while'],steps:[
+['L4-1 · 持锁检查','B 重入两层，state=2，检查 queue.isEmpty()=true。','owner=B; state=2\nwhile (empty) ...','检查 predicate 必须受锁保护。'],
+['L4-2 · 侧门登记','B 进入 notEmpty ConditionQueue；此刻仍持锁，登记和释放属于一个等待协议。','ConditionQueue: B\nSyncQueue: empty','B 等的是 predicate，不是锁空闲。'],
+['L4-3 · 保存重入层数','B 保存 savedState=2，准备完整释放。','savedState=2','不能只 unlock 一层。'],
+['L4-4 · fullyRelease','B 完整释放，state=2→0，owner 清空；B 仍在 ConditionQueue。','state:2→0; owner:B→—','ConditionQueue 中的 B 此刻不持锁。'],
+['L4-5 · B park','B 在侧门休息，P 可以进入正门。','ConditionQueue:B → park\nSyncQueue: empty','B 不参与同步队列竞争。'],
+['L4-6 · P 改变 predicate','P 获取锁，put(item) 使非空 predicate=true，并在锁内 signal。','owner=P; put(item); signal(B)','signal 不等于交锁。'],
+['L4-7 · B 只完成转队','B 从 ConditionQueue 移除，加入 SyncQueue 尾部；P 仍持锁。','ConditionQueue:D\nSyncQueue:H→B','B 不同时存在于两本册子。'],
+['L4-8 · P unlock 后 B 重试','P 释放；B 获得重试机会，但必须重新 acquire。','P.unlock → unpark(B)\nB.tryAcquire()','被叫醒不等于拿到锁。'],
+['L4-9 · B reacquire','B 成功获取并恢复 savedState=2，回到 await 返回点。','owner=B; state:0→2','恢复锁状态，不保证 predicate 永久成立。'],
+['L4-10 · 其他消费者抢走 item','B 的 while 复检发现 item 已被别人取走，predicate 又变为 false。','while (queue.isEmpty()) → true','signal 不承诺消费权。'],
+['L4-11 · B 再次进入侧门','B 再次加入 ConditionQueue，完整释放并 park，等待下一次 predicate 变化。','ConditionQueue:B\nfullyRelease(2) → park','while 失败会回到等待协议，而不是错误消费。'] ]},
+{id:'shared',tag:'L5 · 共享',title:'共享模式：许可证、返回值与接力传播',desc:'共享支线独立于主线 B；X/Y/Z/W 是许可证候选者。用真实 permits 账本同时展示负、零、正返回值。',prompt:'permits=0 时 W 为什么失败？releaseShared(3) 后谁负责接力？',chips:['permits','tryAcquireShared','result<0','result=0','result>0','releaseShared','传播','不惊群'],steps:[
+['S1 · 共享支线起点','X/Y/Z/W 是独立的共享许可证候选者，不是独占主线 B/C。','state=permits=0\nH→X→Y→Z→W','共享 state 表示真实容量。'],
+['S2 · W 失败','W 尝试获取，发现 0 张票，返回负数，继续等待，不传播。','tryAcquireShared(0) → result<0','负数 = 获取失败。'],
+['S3 · 一次释放三张','资源归还三张票，state 0→3；释放路径推进一个适格后继，不做 unparkAll。','releaseShared(3):0→3\nunpark(X)','释放打开机会，不广播所有权。'],
+['S4 · X 扣一张','X 自己 CAS 3→2，返回正数，说明成功且仍有余量；X 负责接力。','X:3→2; result>0','成功者根据返回值传播。'],
+['S5 · Y 接力','Y 自己 CAS 2→1，仍返回正数，继续推进 Z。','Y:2→1; result>0','X 不替 Y 扣账。'],
+['S6 · Z 拿最后一张','Z 自己 CAS 1→0，成功但返回零；传播在这里停止。','Z:1→0; result=0','零 = 成功但无余量。'],
+['S7 · W 仍等待','W 没有因为 Z 成功就自动获得资源，继续 park。','W:WAITING; permits=0','唤醒不是资源交付。'],
+['S8 · 再释放一张','下一次 releaseShared(1) 使 0→1，推进 W。','releaseShared(1):0→1\nunpark(W)','每次新容量都要能到达候选者。'],
+['S9 · W 自己扣账','W CAS 1→0，成功取得最后一张。','W:1→0; result=0','共享获取仍需自己验证。'],
+['S10 · 传播三分支复盘','负数失败，零成功但停止，正数成功且继续；release 不负责全队广播。','<0 fail · =0 stop · >0 propagate','共享协议把容量与传播绑定。'] ]},
+{id:'cancel',tag:'L5 · 取消',title:'取消、超时与中断：废号不能挡住后继',desc:'等待协议状态和资源账本是两件事：B 被取消不等于当前 owner 自动释放资源。',prompt:'B 到期离场后，谁保证 C 不被废号永久挡住？',chips:['deadline','CANCELLED','safe','live','prev 回溯','释放回扫','cleaning','interrupt 合同'],steps:[
+['X1 · 正常队列','H→A→B→C；B 等待，C 依赖有效前驱。资源账本单独显示 owner=A。','B.status=WAITING\nresource: state=1, owner=A','等待状态与资源所有权分开。'],
+['X2 · timeout 到期','B 的 deadline 到达，等待 API 需要返回超时结果。','tryAcquireNanos → timeout','超时是离场合同，不是普通删除。'],
+['X3 · 标记废号','B 标记 CANCELLED；以后任何路径都不能把资源交给 B。资源账本仍由 A 决定。','B.status=CANCELLED\nstate=1, owner=A','安全性：取消者不可重新获取。'],
+['X4 · 绕过废号','后继、释放路径或清理逻辑协作绕过 B；不把责任简化成 C 必然单独修链。','B(X) skipped\nA → C effective relation','活性：废号不能永久挡后继。'],
+['X5 · 释放路径回扫','A 释放时 next 为空/废号，可从 tail 沿 prev 回扫到 C。','next fast path fail\nprev backscan → C','prev 是异常恢复线。'],
+['X6 · 先恢复活性','C 获得继续前进的路径；此时清理可以稍后发生。','C: eligible\nB: CANCELLED','进度正确性优先于链表漂亮。'],
+['X7 · 物理清理','清理逻辑断开 B 引用，降低扫描与保留成本；名称随 JDK 版本变化。','cleanup logic\nB.prev/B.next detached','清理不是安全性的唯一来源。'],
+['X8 · timeout 结果','超时调用返回 false，B 不获得资源；业务层决定降级或拒绝。','timeout → false','等待协议必须返回明确业务结果。'],
+['X9 · 可中断获取','lockInterruptibly 收到 interrupt 后取消并抛 InterruptedException。','interrupt → cancel → throw','中断会改变 API 结果。'],
+['X10 · 不可中断 lock','lock 记录中断，先完成获取，成功后恢复 interrupt 标记。','interrupt → record\nacquire → selfInterrupt','暂不响应不等于吞掉中断。'] ]}
+];
+let mi=0,si=0,timer=null;
+const $=id=>document.getElementById(id);
+function active(){return modules[mi]}
+function buildRoadmap(){ $('roadmap').innerHTML=modules.map((m,i)=>`<button class="${i===mi?'active':''}" data-i="${i}"><b>${m.tag}</b><span>${m.title.split('：')[0]}</span></button>`).join('');document.querySelectorAll('#roadmap button').forEach(b=>b.onclick=()=>{mi=+b.dataset.i;si=0;stop();render()})}
+function node(label,cls='',sub=''){return `<div class="node ${cls}"><b>${label}</b><small>${sub}</small></div>`}
+function renderFactory(){
+ const m=active(),s=si; let html='';
+ if(m.id==='exclusive'){
+  let q='',action='',focus='';
+  const st=s<11?'1':s===13||s===14?'1':'1', own=s<12?'A':s===12?'A':'B';
+  const head=s<3?'null':s<13?'H':'B',tail=s<5?'null':s<8?'B':'C';
+  if(s===0){q='<span class="muted">暂无队列：head=null · tail=null</span>';action='A 持锁';focus='无竞争，不建队列';}
+  if(s===1){q='<span class="o">B CAS 失败 → enq</span>';action='tryAcquire=false';focus='进入慢路径';}
+  if(s===2){q='<span class="o">B / C 同时 CAS 初始化 H</span>';action='一个成功，另一个重读';focus='懒创建哨兵';}
+  if(s===3){q=node('H','head current','head=H · tail=H');action='head=H; tail=H';focus='H 不持锁';}
+  if(s===4){q=node('H','head','H.next=null')+node('B','current','B.prev=H');action='B.prev=H';focus='先建 prev';}
+  if(s===5){q=node('H','head','H.next=null')+node('B','current','tail=B');action='CAS(tail,H,B) success';focus='B 正式入队';}
+  if(s===6){q=node('H','head','H.next=B')+node('B','current','B.next=null');action='H.next=B';focus='补 next 快链';}
+  if(s===7){q=node('H','head','H.next=B')+node('B','','B.next=null')+node('C','current','CAS fail');action='C CAS(tail,H,C) fail';focus='重读 tail';}
+  if(s===8){q=node('H','head','H.next=B')+node('B','','B.next=null')+node('C','current','C.prev=B');action='C.prev=B; CAS(tail,B,C)';focus='C 正式入队';}
+  if(s===9){q=node('H','head','H.next=B')+node('B','','B.next=C')+node('C','current','tail=C');action='B.next=C';focus='prev/next 双链完整';}
+  if(s===10){q=node('H','head','H.next=B')+node('B','current','WAITING / park')+node('C','','B.next=C');action='表达等待意图 → park';focus='先承诺再睡';}
+  if(s===11){q=node('H','head','state=0')+node('B','current','unpark')+node('C','','等待');action='A.release → unpark(B)';focus='叫醒≠交锁';}
+  if(s===12){q=node('H','head','state=1')+node('N','current','抢先成功')+node('B','cancel','tryAcquire fail');action='N 先 CAS 成功';focus='非公平插队';}
+  if(s===13){q=node('B','head current','owner=B · B.next=C')+node('C','','C.prev=B');action='B.tryAcquire success';focus='B 成为新 head';}
+  if(s===14){q=node('B','head','B.next=C')+node('C','current','等待 B 释放');action='C 依附 B';focus='局部交班';}
+  const bprev=s<4?'—':s<13?'H':'null',bnext=s<6?'—':'C';
+  html+=`<div class="station"><div>state · 占用账本</div><div class="state">${s===11?'0':'1'}</div><div class="owner">owner：${s>=13?'B':s===11?'—':'A'}</div></div><div class="queue-title">正门 SyncQueue</div><div class="queue">${q}</div><div class="chain-panel"><div class="chain-box"><h4>prev · 资格 / 回溯</h4><div class="chain-line">${head==='null'?'null':head==='B'?'B ← C':'H ← B'+(s>=8?' ← C':'')}</div><div class="chain-line">B.prev = <em>${bprev}</em></div></div><div class="chain-box"><h4>next · 释放 / 快速叫号</h4><div class="chain-line">${s<6?'null':s<9?'H.next → B':'H.next → B → C'}</div><div class="chain-line">B.next = <em>${bnext}</em></div></div></div><div class="mini-row"><span class="chip">head：${head}</span><span class="chip">tail：${tail}</span><span class="chip">动作：${action}</span><span class="chip">焦点：${focus}</span></div>`;
+ }
+ if(m.id==='condition'){
+  let q='',side='',state=0,owner='—';
+  if(s<=2){q=node('B','current','持锁 / 登记');side=node('B','condition current',s===0?'predicate=false':s===1?'ConditionNode':'savedState=2');state=2;owner='B';}
+  if(s===3||s===4||s===10){q='<span class="muted">正门空闲</span>';side=node('B','condition current',s===10?'再次 park':'park');state=0;owner='—';}
+  if(s===5){q=node('P','current','put / signal');side=node('D','condition','等待');state=1;owner='P';}
+  if(s===6){q=node('P','','持锁')+node('B','current','SyncQueue tail');side=node('D','condition','等待');state=1;owner='P';}
+  if(s===7){q=node('B','current','unpark / retry');side=node('D','condition','等待');state=0;owner='—';}
+  if(s===8||s===9){q=node('B','head current',s===8?'owner=B · state=2':'while=false')+node('D','condition','等待');side='';state=2;owner='B';}
+  html+=`<div class="station"><div>state · 重入账本</div><div class="state">${state}</div><div class="owner">owner：${owner}</div></div><div class="queue-title">正门 SyncQueue</div><div class="queue">${q}</div><div class="queue-title">侧门 ConditionQueue · notEmpty</div><div class="queue">${side||'<span class="muted">B 已离开侧门</span>'}</div>`;
+ }
+ if(m.id==='shared'){
+  const permits=[0,0,0,3,2,1,0,0,1,0,0],p=permits[s]; let n='';
+  if(s<=2)n=node('H','head','permits=0')+node('X','','wait')+node('Y','','wait')+node('Z','','wait')+node('W',s===2?'current':'','result<0');
+  if(s===3)n=node('H','head','0→3')+node('X','current','unpark')+node('Y','','wait')+node('Z','','wait')+node('W','','wait');
+  if(s===4)n=node('H','head')+node('X','current','3→2 · +')+node('Y','','wait')+node('Z','','wait')+node('W','','wait');
+  if(s===5)n=node('H','head')+node('X','','holder')+node('Y','current','2→1 · +')+node('Z','','wait')+node('W','','wait');
+  if(s===6)n=node('H','head')+node('X','','holder')+node('Y','','holder')+node('Z','current','1→0 · 0')+node('W','','wait');
+  if(s===7)n=node('H','head')+node('X','','holder')+node('Y','','holder')+node('Z','','holder')+node('W','current','still wait');
+  if(s===8)n=node('H','head')+node('X','','holder')+node('Y','','holder')+node('Z','','holder')+node('W','current','unpark');
+  if(s===9||s===10)n=node('H','head')+node('X','','holder')+node('Y','','holder')+node('Z','','holder')+node('W','current','1→0 · 0');
+  html+=`<div class="station"><div>state · 剩余 permits</div><div class="state">${p}</div><div class="owner">shared · X/Y/Z/W 独立支线</div></div><div class="queue-title">共享 SyncQueue · result 驱动传播</div><div class="queue">${n}</div><div class="mini-row"><span class="chip">负数：失败</span><span class="chip">零：成功 / 停止</span><span class="chip">正数：成功 / 接力</span></div>`;
+ }
+ if(m.id==='cancel'){
+  let n=''; if(s===0)n=node('H','head')+node('A','current','owner=A')+node('B','','WAITING')+node('C','','后继');
+  if(s===1)n=node('H','head')+node('A','current','owner=A')+node('B','current','timeout')+node('C','','后继');
+  if(s===2)n=node('H','head')+node('A','current','owner=A')+node('B','cancel current','CANCELLED')+node('C','','后继');
+  if(s===3)n=node('H','head')+node('A','current','owner=A')+node('B','cancel','skipped')+node('C','current','绕过 B');
+  if(s===4)n=node('H','head')+node('A','current','release / scan')+node('B','cancel','废号')+node('C','','eligible');
+  if(s===5)n=node('H','head')+node('A','','released')+node('C','current','继续');
+  if(s===6)n=node('H','head')+node('A','','released')+node('C','current','cleanup later');
+  if(s===7)n=node('H','head')+node('A','','released')+node('C','current','timeout=false');
+  if(s===8)n=node('H','head')+node('A','','released')+node('B','cancel current','interrupt→throw')+node('C','','继续');
+  if(s===9)n=node('H','head')+node('A','','released')+node('C','current','record→acquire');
+  html+=`<div class="station"><div>等待协议 / 资源账本分离</div><div class="state">${s<5?'1':'0'}</div><div class="owner">资源 owner：${s<5?'A':'—'} · B：${s>=2?'CANCELLED':'WAITING'}</div></div><div class="queue-title">取消节点必须让出道路</div><div class="queue">${n}</div><div class="mini-row"><span class="chip">安全性：${s>=2?'PASS':'待验证'}</span><span class="chip">活性：${s>=3?'PASS':'待验证'}</span><span class="chip">清理：${s>=6?'可进行':'不是首要条件'}</span></div>`;
+ }
+ $('factory').innerHTML=html;
+}
+function render(){const m=active(),st=m.steps[si];$('moduleTitle').textContent=`${m.tag} · ${m.title}`;$('moduleDesc').textContent=m.desc;$('prompt').textContent=m.prompt;$('stepTitle').textContent=st[0];$('count').textContent=`${si+1} / ${m.steps.length}`;$('stepText').textContent=st[1];$('code').textContent=st[2];$('invariant').textContent='不变量：'+st[3];$('chips').innerHTML=m.chips.map(x=>`<span class="chip">${x}</span>`).join('');$('bar').style.width=((si+1)/m.steps.length*100)+'%';$('timeline').innerHTML=m.steps.map((x,i)=>`<li class="${i===si?'active':''}">${i+1}<br>${x[0].split('·')[1]||x[0]}</li>`).join('');let rows=[],checks=[];
+if(m.id==='exclusive'){const e=[['1','A','null','快路径'],['1','A','null','enq'],['1','A','null','初始化竞争'],['1','A','H','H 已创建'],['1','A','H','B.prev=H'],['1','A','B','B 已提交'],['1','A','B','H.next=B'],['1','A','B','C CAS 失败'],['1','A','C','C 已提交'],['1','A','C','B.next=C'],['1','A','C','park'],['0','—','C','unpark(B)'],['1','N','C','B 重试失败'],['1','B','B','B 新 head'],['1','B','B','C 等待']][si];rows=[['state',e[0]],['owner',e[1]],['head',e[2]],['B 所在',e[3]],['推进责任',si<11?'入队协议':si===11?'A.release / unpark':si===12?'下一次重试':'B release']];checks=[['state 与 owner 一致',!(e[0]==='0'&&e[1]!=='—')],['head 不是 owner 字段',true],['next 是快链、prev 可回溯',si>=4]];}
+if(m.id==='condition'){const c=[['2','B','ConditionQueue 登记','false'],['2','B','ConditionQueue 登记','false'],['2','B','保存 savedState','false'],['0','—','ConditionQueue · park','false'],['0','—','ConditionQueue · park','false'],['1','P','P 持锁 / signal','true'],['1','P','SyncQueue · B 转队','true'],['0','—','SyncQueue · B 等待','true'],['2','B','SyncQueue · reacquire','true'],['2','B','while 复检失败','false'],['0','—','ConditionQueue · 再次 park','false']][si];rows=[['state',c[0]],['owner',c[1]],['B 所在',c[2]],['predicate',c[3]],['推进责任',si<5?'B await':si<7?'P signal':si===7?'P unlock':si<10?'B reacquire':'B 再次 await']];checks=[['state 与 owner 一致',!(c[0]==='0'&&c[1]!=='—')],['B 不同时存在于两本队列',true],['signal 后必须 reacquire',true]];}
+if(m.id==='shared'){const ps=[0,0,0,3,2,1,0,0,1,0,0],p=ps[si];rows=[['permits',p],['模式','shared'],['B 所在','X/Y/Z/W 独立支线'],['推进责任',si<3?'tryAcquireShared':si<4?'releaseShared':si<8?'成功者接力':'releaseShared']];checks=[['负数表示失败',si>=2],['零表示停止传播',si>=6],['正数只在仍有余量时传播',si>=4]];}
+if(m.id==='cancel'){rows=[['B.status',si<2?'WAITING':'CANCELLED'],['资源 state',si<5?'1':'0'],['资源 owner',si<5?'A':'—'],['B 所在',si<3?'SyncQueue':'已绕过 / 取消'],['推进责任',si<3?'timeout / cancel':si<5?'释放回扫 / 后继':'清理与业务收口']];checks=[['取消者不可重新获取',si>=2],['资源 owner 与取消状态分离',true],['活性先于物理清理',si>=3]];}
+$('stateTable').innerHTML=rows.map(r=>`<tr><td>${r[0]}</td><td class="value">${r[1]}</td></tr>`).join('');$('checks').innerHTML=checks.map(c=>`<div class="check ${c[1]?'':'bad'}">${c[1]?'✓':'!'} ${c[0]}</div>`).join('');buildRoadmap();renderFactory()}
+function stop(){if(timer){clearInterval(timer);timer=null;$('play').textContent='⏩ 自动播放'}}$('next').onclick=()=>{if(si<active().steps.length-1)si++;else stop();render()};$('prev').onclick=()=>{if(si>0)si--;render()};$('reset').onclick=()=>{stop();si=0;render()};$('play').onclick=()=>{if(timer){stop();return} $('play').textContent='⏸ 暂停';timer=setInterval(()=>{if(si>=active().steps.length-1){stop();return}si++;render()},1200)};document.addEventListener('keydown',e=>{if(e.key==='ArrowRight')$('next').click();if(e.key==='ArrowLeft')$('prev').click();if(e.code==='Space'){e.preventDefault();$('play').click()}});$('captureBtn').onclick=()=>{window.print()};$('shareBtn').onclick=async()=>{try{await navigator.clipboard.writeText(location.href);$('shareBtn').textContent='✓ 已复制链接';setTimeout(()=>$('shareBtn').textContent='🔗 复制分享链接',1600)}catch(e){prompt('复制这个链接：',location.href)}};render();
+</script>
+</body></html>
