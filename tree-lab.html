@@ -612,12 +612,11 @@ function travMultiPre(n,o){if(!n)return;o.push(n);if(n._ch)for(let c of n._ch)tr
 function travMultiIn(n,o){
   if(!n)return;
   if(!n._ch||!n._ch.length){o.push(n);return}
-  // For multi-way: visit child[0], key[0], child[1], key[1], ... child[n]
-  // We treat the node itself as a single visit after first half of children
-  let mid=Math.floor(n._ch.length/2);
-  for(let i=0;i<mid;i++)travMultiIn(n._ch[i],o);
+  // 当前动画以“节点”为单位，不能把一个多 key 节点拆成多个 key 访问事件。
+  // 采用 child[0] → 当前节点 → child[1..n] 的节点序；这不是 B/B+ 树逐 key 的标准中序遍历。
+  travMultiIn(n._ch[0],o);
   o.push(n);
-  for(let i=mid;i<n._ch.length;i++)travMultiIn(n._ch[i],o);
+  for(let i=1;i<n._ch.length;i++)travMultiIn(n._ch[i],o);
 }
 function travMultiPost(n,o){if(!n)return;if(n._ch)for(let c of n._ch)travMultiPost(c,o);o.push(n)}
 function travMultiLevel(n,o){if(!n)return;let q=[n];while(q.length){let c=q.shift();o.push(c);if(c._ch)for(let ch of c._ch)q.push(ch);if(c.l)q.push(c.l);if(c.r)q.push(c.r)}}
@@ -674,7 +673,7 @@ function hIns(){
 }
 function hDel(){if(locked)return;let v=$('inp').value.trim();if(!v){if(ds.includes('heap')){$('inp').value='';eng().delete();return}return}$('inp').value='';if(ds==='trie'){eng().delete(v);return}if(ds.includes('heap')){eng().delete();return}const parsed=parseIntegerTokens(v);if(parsed.invalid.length||parsed.values.length!==1){toast('请输入一个有效整数','err');ann('请输入一个有效整数');return}eng().delete(parsed.values[0])}
 function hFind(){if(locked)return;let v=$('inp').value.trim();if(!v)return;if(ds==='trie'){eng().find(v);return}const parsed=parseIntegerTokens(v);if(parsed.invalid.length||parsed.values.length!==1){toast('请输入一个有效整数','err');ann('请输入一个有效整数');return}eng().find(parsed.values[0])}
-function hRnd(){if(locked)return;if(ds==='trie'){$('inp').value='cat,car,card,care,dog';hIns();return}let used=new Set();let r=getTree();(function col(n){if(!n)return;used.add(n.k);col(n.l);col(n.r)})(r);if(ds.includes('heap'))heapA.forEach(v=>used.add(v));let vs=[],a=0;while(vs.length<5&&a<200){let v=Math.floor(Math.random()*99)+1;if(!used.has(v)){vs.push(v);used.add(v)}a++}$('inp').value=vs.join(',');hIns()}
+function hRnd(){if(locked)return;if(ds==='trie'){$('inp').value='cat,car,card,care,dog';hIns();return}let used=new Set();if(ds.includes('heap'))heapA.forEach(v=>used.add(v));else if(ds==='btree'||ds==='bplus'){let root=ds==='btree'?btR:bpR;function col(n){if(!n)return;for(let k of(n.keys||[]))used.add(k);for(let c of(n.children||[]))col(c)}col(root)}else{let r=getTree();(function col(n){if(!n)return;used.add(n.k);col(n.l);col(n.r)})(r)}let vs=[],a=0;while(vs.length<5&&a<200){let v=Math.floor(Math.random()*99)+1;if(!used.has(v)){vs.push(v);used.add(v)}a++}$('inp').value=vs.join(',');hIns()}
 function hClr(){if(locked)return;cancelBatch();eng().clr();if(ds.includes('heap'))heapA=[];steps=[];snaps=[];si=-1;hlSet=new Set();autoP=false;if(autoT)clearTimeout(autoT);$('bA').textContent='▶';setB(false);$('bN').disabled=$('bP').disabled=$('bA').disabled=$('bS').disabled=true;locked=false;render();updP();$('stC').innerHTML='<div class="sc" aria-current="step"><h4>🗑️ 已清空</h4><p>输入值开始。</p></div>';ann('已清空')}
 
 // ===== DS Switch =====
@@ -792,5 +791,5 @@ switchDS();
 try{loadFromURL()}catch(e){}
 })();
 </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a166a6001e08005d',t:'MTc4MzI1NzQzMQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>
