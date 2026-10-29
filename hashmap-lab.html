@@ -49,7 +49,7 @@ ConcurrentHashMap CAS + 桶级 synchronized，支持并发
 <footer class="productFooter"><div class="footerActions"><button id="captureBtn">📷 截图当前实验</button><button id="shareBtn">🔗 复制分享链接</button><span id="shareStatus" class="small" aria-live="polite"></span></div><div class="footerLinks"><span>配套文档：</span><a href="https://github.com/imZhiYa/tech-knowledge-docs/tree/main/docs/04-collections" target="_blank" rel="noopener">tech-knowledge-docs · 🗄️ Java Collection.md</a><span>·</span><a href="https://github.com/imZhiYa/tech-knowledge-docs/blob/main/docs/04-collections/%F0%9F%97%84%EF%B8%8F%20Java%20Collection.md#level-4" target="_blank" rel="noopener">HashMap 源码级拆解</a></div><div class="footerLinks">工具合集：<a href="https://github.com/imZhiYa/cs-visual-tools" target="_blank" rel="noopener">cs-visual-tools</a><span>·</span><a href="https://imzhiya.github.io/cs-visual-tools/" target="_blank" rel="noopener">在线工具合集</a><span>·</span><a href="https://imzhiya.github.io/cs-visual-tools/jvm-runtime-lab.html" target="_blank" rel="noopener">JVM Runtime Lab</a></div><p class="foot">教学示意 · 非生产基准 · MIT · Built for learning</p></footer>
 </main>
 <script>
-const $=s=>document.querySelector(s), $=s=>[...document.querySelectorAll(s)];
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const escapeHTML=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const sourceMap={hash:{title:'HashMap.hash()',line:'L1–L4',hint:'先预测：扰动函数解决什么问题？',code:`static final int hash(Object key) {
     int h;
