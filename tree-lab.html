@@ -402,7 +402,7 @@ function validateBPlus(root){
   function walk(n,depth,min,max,isRoot){
     if(!n||seen.has(n)){error='节点缺失或存在环';return}seen.add(n);
     if(!Array.isArray(n.keys)||n.keys.length>btMaxK()){error='节点 key 数量超过阶数上限';return}
-    for(let i=0;i<n.keys.length;i++){const k=n.keys[i];if(!Number.isFinite(k)||(i>0&&n.keys[i-1]>=k)||k<=min||k>=max){error='key 顺序或子树范围错误';return}}
+    for(let i=0;i<n.keys.length;i++){const k=n.keys[i];if(!Number.isFinite(k)||(i>0&&n.keys[i-1]>=k)||k<min||k>=max){error='key 顺序或子树范围错误';return}}
     if(n.leaf){if(n.children.length!==0||(!isRoot&&n.keys.length<bpMinLeafKeys())){error='叶节点占用或子节点不合法';return}if(leafDepth===null)leafDepth=depth;else if(leafDepth!==depth)error='叶子深度不一致';leaves.push(n);return}
     if(n.keys.length===0||(!isRoot&&n.keys.length<btMinK())||n.children.length!==n.keys.length+1){error='内部节点占用或子节点数量不合法';return}
     for(let i=0;i<n.children.length;i++){walk(n.children[i],depth+1,i===0?min:n.keys[i-1],i===n.keys.length?max:n.keys[i],false);if(error)return;if(i>0&&minKey(n.children[i])!==n.keys[i-1]){error='内部索引与右侧子树最小 key 不一致';return}}
