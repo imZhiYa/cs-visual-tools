@@ -464,11 +464,13 @@ function anim(r){if(af)cancelAnimationFrame(af);
 function draw(r){let W=cv.width/devicePixelRatio,H=cv.height/devicePixelRatio;cx.clearRect(0,0,W,H);
   if(!r){cx.fillStyle='#444';cx.font='13px sans-serif';cx.textAlign='center';cx.fillText('选择数据结构，输入值开始',W/2,H/2);return}
   if(r._ch){drawMulti(r);if(ds==='bplus')drawBPLeafLinks()}else{drawE(r);drawN(r,r)}}
-function drawBPLeafLinks(){if(!bpR)return;let n=bpR;while(n&&!n.leaf)n=n.children[0];let leaves=[];while(n){leaves.push(n);n=n.next}
-  // Find the display nodes by matching IDs
-  for(let i=0;i<leaves.length-1;i++){let a=findById(dispR,leaves[i].id),b=findById(dispR,leaves[i+1].id);if(a&&b){let kw=22,slotW=8,pad=6;let aw=(a.keys.length*kw+(a.keys.length+1)*slotW+pad*2)*a.sc/2;let bw=(b.keys.length*kw+(b.keys.length+1)*slotW+pad*2)*b.sc/2;let ax=a.x+aw,bx=b.x-bw;cx.beginPath();cx.moveTo(ax,a.y);cx.lineTo(bx,b.y);cx.strokeStyle='rgba(63,185,80,.4)';cx.lineWidth=2;cx.setLineDash([4,3]);cx.stroke();cx.setLineDash([]);
-    // Arrow
-    cx.beginPath();cx.moveTo(bx-5,b.y-4);cx.lineTo(bx,b.y);cx.lineTo(bx-5,b.y+4);cx.strokeStyle='rgba(63,185,80,.5)';cx.lineWidth=1.5;cx.stroke()}}}
+function drawBPLeafLinks(){if(!dispR)return;let leaves=[];
+  // Use the rendered tree, not the live bpR model: history replay renders a snapshot.
+  function collectLeaves(n){if(!n)return;if(!n._ch||!n._ch.length){leaves.push(n);return}for(let c of n._ch)collectLeaves(c)}
+  collectLeaves(dispR);
+  for(let i=0;i<leaves.length-1;i++){let a=leaves[i],b=leaves[i+1];let kw=22,slotW=8,pad=6;let aw=(a.keys.length*kw+(a.keys.length+1)*slotW+pad*2)*a.sc/2;let bw=(b.keys.length*kw+(b.keys.length+1)*slotW+pad*2)*b.sc/2;let ax=a.x+aw,bx=b.x-bw;cx.beginPath();cx.moveTo(ax,a.y);cx.lineTo(bx,b.y);cx.strokeStyle='rgba(63,185,80,.4)';cx.lineWidth=2;cx.setLineDash([4,3]);cx.stroke();cx.setLineDash([]);
+    // Arrow points into the right edge of the next leaf.
+    cx.beginPath();cx.moveTo(bx-5,b.y-4);cx.lineTo(bx,b.y);cx.lineTo(bx-5,b.y+4);cx.strokeStyle='rgba(63,185,80,.5)';cx.lineWidth=1.5;cx.stroke()}}
 function findById(n,id){if(!n)return null;if(n.id===id)return n;if(n._ch)for(let c of n._ch){let r=findById(c,id);if(r)return r}return findById(n.l,id)||findById(n.r,id)}
 
 function drawE(n){if(!n)return;
