@@ -192,9 +192,10 @@ const $=id=>document.getElementById(id),cv=$('cv'),cx=cv.getContext('2d');
 const NR=18,LH=72,HS=52;
 let ds='bst',steps=[],si=-1,snaps=[],autoP=false,autoT=null,dispR=null,hlSet=new Set(),af=null,locked=false;
 let showDepth=false,showHeight=false,showType=false,showNil=false;
-let _nid=0,toastTimer=null,btOrder=3;
+let _nid=0,toastTimer=null,btOrder=3,batchGeneration=0,batchTimer=null;
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 function ann(m){$('live').textContent=m}
+function cancelBatch(){batchGeneration++;if(batchTimer!==null){clearTimeout(batchTimer);batchTimer=null}}
 function toast(m,type){let t=$('toast');t.textContent=m;t.className='toast show'+(type==='err'?' err':type==='ok'?' ok':'');if(toastTimer)clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.classList.remove('show')},2200)}
 
 // ===== Node =====
@@ -314,6 +315,7 @@ function btSplit(node){let mid=Math.floor(node.keys.length/2);let left=new BNode
 function btDel(k){if(!btR){rec('树为空','',[],[]);return}rec('删除 '+k,'',[],['tR']);ann('删除'+k);btDelR(btR,k);if(btR&&btR.keys.length===0){btR=btR.leaf?null:btR.children[0]||null;if(btR)rec('根收缩','',[],['tRot'])}}
 function btMinK(){return Math.ceil(btOrder/2)-1}
 function btT(){return Math.ceil(btOrder/2)}
+function bpMinLeafKeys(){return Math.ceil((btOrder-1)/2)}
 function btDelR(node,k){let i=0;while(i<node.keys.length&&k>node.keys[i])i++;if(i<node.keys.length&&node.keys[i]===k){if(node.leaf){node.keys.splice(i,1);rec('叶节点删除 '+k,'',[],['tChk'])}else{let lc=node.children[i],rc=node.children[i+1];if(lc.keys.length>=btT()){let pred=lc;while(!pred.leaf)pred=pred.children[pred.children.length-1];let pk=pred.keys[pred.keys.length-1];node.keys[i]=pk;rec('前驱 '+pk+' 替换 '+k,'',[],['tRot']);btDelR(lc,pk)}else if(rc.keys.length>=btT()){let succ=rc;while(!succ.leaf)succ=succ.children[0];let sk=succ.keys[0];node.keys[i]=sk;rec('后继 '+sk+' 替换 '+k,'',[],['tRot']);btDelR(rc,sk)}else{btMerge(node,i);rec('合并子节点','',[],['tRot']);btDelR(node.children[i],k)}}}else{if(node.leaf)return;if(node.children[i].keys.length<btT()){btFill(node,i);i=0;while(i<node.keys.length&&k>node.keys[i])i++;if(i<node.keys.length&&node.keys[i]===k){btDelR(node,k);return}}if(i>=node.children.length)i=node.children.length-1;btDelR(node.children[i],k)}}
 function btFill(node,i){if(i>0&&node.children[i-1].keys.length>=btT()){let c=node.children[i],s=node.children[i-1];c.keys.unshift(node.keys[i-1]);node.keys[i-1]=s.keys.pop();if(!s.leaf)c.children.unshift(s.children.pop());rec('从左兄弟借key','',[],['tRot'])}else if(i<node.children.length-1&&node.children[i+1].keys.length>=btT()){let c=node.children[i],s=node.children[i+1];c.keys.push(node.keys[i]);node.keys[i]=s.keys.shift();if(!s.leaf)c.children.push(s.children.shift());rec('从右兄弟借key','',[],['tRot'])}else{if(i<node.keys.length)btMerge(node,i);else btMerge(node,i-1)}}
 function btMerge(node,i){let l=node.children[i],r=node.children[i+1];l.keys.push(node.keys[i]);l.keys=l.keys.concat(r.keys);l.children=l.children.concat(r.children);node.keys.splice(i,1);node.children.splice(i+1,1);rec('合并 ['+l.keys+']','',[],['tRot'])}
@@ -329,8 +331,8 @@ function bpInsR(node,k){if(node.leaf){let i=0;while(i<node.keys.length&&k>node.k
 function bpSplitLeaf(node){let mid=Math.ceil(node.keys.length/2);let right=new BPNode(true);right.keys=node.keys.slice(mid);right.next=node.next;node.keys=node.keys.slice(0,mid);node.next=right;rec('叶分裂 → 提升 '+right.keys[0],'',[],['tRot']);return{mid:right.keys[0],left:node,right}}
 function bpSplitInternal(node){let mid=Math.floor(node.keys.length/2);let right=new BPNode(false);right.keys=node.keys.slice(mid+1);right.children=node.children.slice(mid+1);let midKey=node.keys[mid];node.keys=node.keys.slice(0,mid);node.children=node.children.slice(0,mid+1);rec('内部分裂 → 提升 '+midKey,'',[],['tRot']);return{mid:midKey,left:node,right}}
 function bpDel(k){if(!bpR){rec('树为空','',[],[]);return}rec('删除 '+k,'',[],['tR']);ann('删除'+k);bpDelR(bpR,k);if(bpR&&!bpR.leaf&&bpR.keys.length===0){bpR=bpR.children.length?bpR.children[0]:null;if(bpR)rec('根收缩','',[],['tRot'])}if(bpR&&bpR.leaf&&bpR.keys.length===0)bpR=null}
-function bpDelR(node,k){if(node.leaf){let i=node.keys.indexOf(k);if(i===-1){rec('未找到 '+k,'',[],[]);return false}node.keys.splice(i,1);rec('叶删除 '+k,'',[],['tChk']);return true}let i=0;while(i<node.keys.length&&k>=node.keys[i])i++;let ch=node.children[i];let ok=bpDelR(ch,k);if(!ok)return false;if(i>0&&ch.keys.length>0){let lm=ch;while(!lm.leaf)lm=lm.children[0];if(lm.keys.length>0)node.keys[i-1]=lm.keys[0]}if(ch.keys.length<1)bpFixCh(node,i);return true}
-function bpFixCh(par,idx){let ch=par.children[idx],ls=idx>0?par.children[idx-1]:null,rs=idx<par.children.length-1?par.children[idx+1]:null;if(ch.leaf){if(ls&&ls.leaf&&ls.keys.length>1){ch.keys.unshift(ls.keys.pop());par.keys[idx-1]=ch.keys[0];rec('叶借左','',[],['tRot'])}else if(rs&&rs.leaf&&rs.keys.length>1){ch.keys.push(rs.keys.shift());par.keys[idx]=rs.keys[0];rec('叶借右','',[],['tRot'])}else if(ls&&ls.leaf){ls.keys=ls.keys.concat(ch.keys);ls.next=ch.next;par.keys.splice(idx-1,1);par.children.splice(idx,1);rec('叶合并左','',[],['tRot'])}else if(rs&&rs.leaf){ch.keys=ch.keys.concat(rs.keys);ch.next=rs.next;par.keys.splice(idx,1);par.children.splice(idx+1,1);rec('叶合并右','',[],['tRot'])}}else{if(ls&&!ls.leaf&&ls.keys.length>1){ch.keys.unshift(par.keys[idx-1]);par.keys[idx-1]=ls.keys.pop();if(ls.children.length)ch.children.unshift(ls.children.pop());rec('内部借左','',[],['tRot'])}else if(rs&&!rs.leaf&&rs.keys.length>1){ch.keys.push(par.keys[idx]);par.keys[idx]=rs.keys.shift();if(rs.children.length)ch.children.push(rs.children.shift());rec('内部借右','',[],['tRot'])}else if(idx<par.keys.length&&rs){ch.keys.push(par.keys[idx]);ch.keys=ch.keys.concat(rs.keys);ch.children=ch.children.concat(rs.children);par.keys.splice(idx,1);par.children.splice(idx+1,1);rec('内部合并右','',[],['tRot'])}else if(idx>0&&ls){ls.keys.push(par.keys[idx-1]);ls.keys=ls.keys.concat(ch.keys);ls.children=ls.children.concat(ch.children);par.keys.splice(idx-1,1);par.children.splice(idx,1);rec('内部合并左','',[],['tRot'])}}}
+function bpDelR(node,k){if(node.leaf){let i=node.keys.indexOf(k);if(i===-1){rec('未找到 '+k,'',[],[]);return false}node.keys.splice(i,1);rec('叶删除 '+k,'',[],['tChk']);return true}let i=0;while(i<node.keys.length&&k>=node.keys[i])i++;let ch=node.children[i];let ok=bpDelR(ch,k);if(!ok)return false;if(i>0&&ch.keys.length>0){let lm=ch;while(!lm.leaf)lm=lm.children[0];if(lm.keys.length>0)node.keys[i-1]=lm.keys[0]}if(ch.keys.length<(ch.leaf?bpMinLeafKeys():btMinK()))bpFixCh(node,i);return true}
+function bpFixCh(par,idx){let ch=par.children[idx],ls=idx>0?par.children[idx-1]:null,rs=idx<par.children.length-1?par.children[idx+1]:null;if(ch.leaf){if(ls&&ls.leaf&&ls.keys.length>bpMinLeafKeys()){ch.keys.unshift(ls.keys.pop());par.keys[idx-1]=ch.keys[0];rec('叶借左','',[],['tRot'])}else if(rs&&rs.leaf&&rs.keys.length>bpMinLeafKeys()){ch.keys.push(rs.keys.shift());par.keys[idx]=rs.keys[0];rec('叶借右','',[],['tRot'])}else if(ls&&ls.leaf){ls.keys=ls.keys.concat(ch.keys);ls.next=ch.next;par.keys.splice(idx-1,1);par.children.splice(idx,1);rec('叶合并左','',[],['tRot'])}else if(rs&&rs.leaf){ch.keys=ch.keys.concat(rs.keys);ch.next=rs.next;par.keys.splice(idx,1);par.children.splice(idx+1,1);rec('叶合并右','',[],['tRot'])}}else{if(ls&&!ls.leaf&&ls.keys.length>btMinK()){ch.keys.unshift(par.keys[idx-1]);par.keys[idx-1]=ls.keys.pop();if(ls.children.length)ch.children.unshift(ls.children.pop());rec('内部借左','',[],['tRot'])}else if(rs&&!rs.leaf&&rs.keys.length>btMinK()){ch.keys.push(par.keys[idx]);par.keys[idx]=rs.keys.shift();if(rs.children.length)ch.children.push(rs.children.shift());rec('内部借右','',[],['tRot'])}else if(idx<par.keys.length&&rs){ch.keys.push(par.keys[idx]);ch.keys=ch.keys.concat(rs.keys);ch.children=ch.children.concat(rs.children);par.keys.splice(idx,1);par.children.splice(idx+1,1);rec('内部合并右','',[],['tRot'])}else if(idx>0&&ls){ls.keys.push(par.keys[idx-1]);ls.keys=ls.keys.concat(ch.keys);ls.children=ls.children.concat(ch.children);par.keys.splice(idx-1,1);par.children.splice(idx,1);rec('内部合并左','',[],['tRot'])}}}
 function bpFind(k){if(!bpR){rec('树为空','',[],[]);ann('树为空');return}bpFindR(bpR,k)}
 function bpFindR(node,k){rec('搜索 ['+node.keys.join(',')+']'+(node.leaf?' (叶)':''),'',[],[]);if(node.leaf){if(node.keys.includes(k)){rec('✅ 找到 '+k,'',[],['tChk']);ann('找到'+k)}else{rec('未找到 '+k,'',[],[]);ann('未找到'+k)}return}let i=0;while(i<node.keys.length&&k>=node.keys[i])i++;bpFindR(node.children[i],k)}
 function bpToTree(node){if(!node)return null;let n=new N(0);n.keys=[...node.keys];n.k=node.keys.join(',');n.id=node.id;n.c=node.leaf?'R':'B';n._ch=node.leaf?[]:node.children.map(bpToTree);return n}
@@ -357,10 +359,10 @@ const engines={
     props(){return[['单词',trWC(trieR)],['节点',trNC(trieR)]]},validate(){return'✅'}},
   btree:{name:'B树(阶=3)',info:'<div class="ic"><h4>B树</h4><p>多路平衡搜索树。阶=3时每个节点最多2个key、3个子节点（即2-3树）。</p></div><div class="ic"><h4>为什么需要B树？</h4><p>二叉树太"高"，磁盘IO次数=树高。B树压扁为多路，3层可存百万数据。</p></div><div class="ic"><h4>分裂</h4><p>节点满时中间key上提，分裂为两个节点。</p></div>',
     insert(k){beginOp();btIns(k);endOp()},delete(k){beginOp();btDel(k);endOp()},find(k){beginOp();btFind(k);endOp()},getRoot(){return btToTree(btR)},clr(){btR=null},
-    props(){let h=btHt(btR);return[['高度',h],['节点',btCnt(btR)]]},validate(){return'✅ B树结构正常'}},
+    props(){let h=btHt(btR);return[['高度',h],['节点',btCnt(btR)]]},validate(){return validateBTree(btR)}},
   bplus:{name:'B+树(阶=3)',info:'<div class="ic"><h4>B+树</h4><p>B树的变体：<b>数据只在叶子</b>，内部节点只存索引。叶子用链表串联，支持高效范围查询。</p></div><div class="ic"><h4>vs B树</h4><p>内部节点更小→单页存更多key→树更矮→IO更少。叶子链表→范围查询无需回溯。</p></div><div class="ic"><h4>应用</h4><p>MySQL InnoDB引擎的核心索引结构。3层B+树(阶=200)可支撑~2000万行数据。</p></div>',
     insert(k){beginOp();bpIns(k);endOp()},delete(k){beginOp();bpDel(k);endOp()},find(k){beginOp();bpFind(k);endOp()},getRoot(){return bpToTree(bpR)},clr(){bpR=null},
-    props(){let h=bpHt(bpR);return[['高度',h],['节点',bpCnt(bpR)],['叶链',bpLeafChain()]]},validate(){return'✅ B+树结构正常'}}
+    props(){let h=bpHt(bpR);return[['高度',h],['节点',bpCnt(bpR)],['叶链',bpLeafChain()]]},validate(){return validateBPlus(bpR)}}
 };
 function eng(){return engines[ds]}
 function cntLeaf(n){if(!n)return 0;if(!n.l&&!n.r)return 1;return cntLeaf(n.l)+cntLeaf(n.r)}
@@ -377,7 +379,38 @@ function btHt(n){if(!n)return 0;if(!n.children.length)return 1;return 1+btHt(n.c
 function btCnt(n){if(!n)return 0;let c=1;for(let ch of n.children)c+=btCnt(ch);return c}
 function bpHt(n){if(!n)return 0;if(n.leaf)return 1;return 1+bpHt(n.children[0])}
 function bpCnt(n){if(!n)return 0;if(n.leaf)return 1;let c=1;for(let ch of n.children)c+=bpCnt(ch);return c}
-function bpLeafChain(){if(!bpR)return'-';let n=bpR;while(!n.leaf)n=n.children[0];let s=[];while(n){s.push(n.keys.join(','));n=n.next}return s.join(' → ')}
+function bpLeafChain(){if(!bpR)return'-';let n=bpR;while(n&&!n.leaf)n=n.children[0];let s=[];while(n){s.push(n.keys.join(','));n=n.next}return s.join(' → ')}
+function validateBTree(root){
+  if(!root)return'✅ B树结构正常（空树）';
+  let leafDepth=null,error='',seen=new Set();
+  function walk(n,depth,min,max,isRoot){
+    if(!n||seen.has(n)){error='节点缺失或存在环';return}seen.add(n);
+    if(!Array.isArray(n.keys)||n.keys.length>btMaxK()||(isRoot?n.keys.length===0:n.keys.length<btMinK())){error='节点 key 数量不满足阶数约束';return}
+    for(let i=0;i<n.keys.length;i++){const k=n.keys[i];if(!Number.isFinite(k)||(i>0&&n.keys[i-1]>=k)||k<=min||k>=max){error='key 顺序或子树范围错误';return}}
+    const leaf=n.children.length===0;
+    if(!leaf&&n.children.length!==n.keys.length+1){error='子节点数量必须等于 key 数量 + 1';return}
+    if(leaf){if(leafDepth===null)leafDepth=depth;else if(leafDepth!==depth)error='叶子深度不一致';return}
+    for(let i=0;i<n.children.length;i++){walk(n.children[i],depth+1,i===0?min:n.keys[i-1],i===n.keys.length?max:n.keys[i],false);if(error)return}
+  }
+  walk(root,0,-Infinity,Infinity,true);
+  return error?'❌ B树校验失败：'+error:'✅ B树结构合法';
+}
+function validateBPlus(root){
+  if(!root)return'✅ B+树结构正常（空树）';
+  let leafDepth=null,error='',seen=new Set(),leaves=[];
+  function minKey(n){while(n&&!n.leaf)n=n.children[0];return n&&n.keys.length?n.keys[0]:Infinity}
+  function walk(n,depth,min,max,isRoot){
+    if(!n||seen.has(n)){error='节点缺失或存在环';return}seen.add(n);
+    if(!Array.isArray(n.keys)||n.keys.length>btMaxK()){error='节点 key 数量超过阶数上限';return}
+    for(let i=0;i<n.keys.length;i++){const k=n.keys[i];if(!Number.isFinite(k)||(i>0&&n.keys[i-1]>=k)||k<min||k>=max){error='key 顺序或子树范围错误';return}}
+    if(n.leaf){if(n.children.length!==0||(!isRoot&&n.keys.length<bpMinLeafKeys())){error='叶节点占用或子节点不合法';return}if(leafDepth===null)leafDepth=depth;else if(leafDepth!==depth)error='叶子深度不一致';leaves.push(n);return}
+    if(n.keys.length===0||(!isRoot&&n.keys.length<btMinK())||n.children.length!==n.keys.length+1){error='内部节点占用或子节点数量不合法';return}
+    for(let i=0;i<n.children.length;i++){walk(n.children[i],depth+1,i===0?min:n.keys[i-1],i===n.keys.length?max:n.keys[i],false);if(error)return;if(i>0&&minKey(n.children[i])!==n.keys[i-1]){error='内部索引与右侧子树最小 key 不一致';return}}
+  }
+  walk(root,0,-Infinity,Infinity,true);
+  if(!error){for(let i=0;i<leaves.length-1;i++)if(leaves[i].next!==leaves[i+1]){error='叶子链表与树的叶子顺序不一致';break}if(leaves.length&&leaves[leaves.length-1].next!==null)error='最后一个叶节点 next 应为 null'}
+  return error?'❌ B+树校验失败：'+error:'✅ B+树结构合法';
+}
 
 // ===== Precompute annotations (O(n) total, not O(n²)) =====
 function preAnn(n,d,isRoot){if(!n)return-1;n._d=d;let lh=preAnn(n.l,d+1,false),rh=preAnn(n.r,d+1,false);n._h=Math.max(lh,rh)+1;n._tp=(!n.l&&!n.r)?'叶':(isRoot?'根':'内');return n._h}
@@ -618,16 +651,32 @@ function toggleTravMenu(){
 }
 
 // ===== Handlers =====
-function hIns(){if(locked)return;let raw=$('inp').value.trim();if(!raw){toast('请输入值','err');ann('请输入值');return}$('inp').value='';if(ds==='trie'){raw.split(/[,，\s]+/).filter(Boolean).forEach(w=>eng().insert(w));return}let vs=raw.split(/[,，\s]+/).map(v=>parseInt(v)).filter(v=>!isNaN(v)&&v>=-999&&v<=9999);if(!vs.length)return;if(vs.length===1){eng().insert(vs[0]);return}let i=0;toast('批量插入 0/'+vs.length+'...');function nx(){if(i>=vs.length||locked)return;eng().insert(vs[i]);i++;si=steps.length-1;hlSet=new Set();render();updP();setB(false);locked=false;$('bN').disabled=$('bP').disabled=$('bA').disabled=$('bS').disabled=true;if(i<vs.length){toast('批量插入 '+i+'/'+vs.length+'...');setTimeout(nx,250)}else{toast('✅ 批量插入完成 ('+vs.length+'个)','ok')}}nx()}
-function hDel(){if(locked)return;let v=$('inp').value.trim();if(!v){if(ds.includes('heap')){$('inp').value='';eng().delete();return}return}$('inp').value='';if(ds==='trie'){eng().delete(v);return}if(ds.includes('heap')){eng().delete();return}let n=parseInt(v);if(isNaN(n)){toast('请输入有效整数','err');ann('请输入有效整数');return}eng().delete(n)}
-function hFind(){if(locked)return;let v=$('inp').value.trim();if(!v)return;if(ds==='trie'){eng().find(v);return}let n=parseFloat(v);if(!Number.isInteger(n)){toast('请输入整数，不支持小数','err');ann('请输入整数，不支持小数');return}eng().find(n)}
+function parseIntegerTokens(raw){
+  const tokens=raw.split(/[,，\s]+/).filter(Boolean),values=[],invalid=[];
+  for(const token of tokens){if(!/^[+-]?\d+$/.test(token)){invalid.push(token);continue}const value=Number(token);if(!Number.isSafeInteger(value)||value < -999||value > 9999){invalid.push(token);continue}values.push(value)}
+  return{values,invalid};
+}
+function hIns(){
+  if(locked)return;let raw=$('inp').value.trim();
+  if(!raw){toast('请输入值','err');ann('请输入值');return}$('inp').value='';
+  if(ds==='trie'){const words=raw.split(/[,，\s]+/).filter(Boolean);if(!words.length){toast('请输入有效单词','err');return}words.forEach(w=>eng().insert(w));return}
+  const parsed=parseIntegerTokens(raw),vs=parsed.values;
+  if(parsed.invalid.length)toast('已忽略无效值：'+parsed.invalid.slice(0,4).join(', ')+(parsed.invalid.length>4?'…':''),'err');
+  if(!vs.length){if(!parsed.invalid.length)toast('请输入有效整数','err');ann('没有可插入的有效整数');return}
+  if(vs.length===1){eng().insert(vs[0]);return}
+  cancelBatch();const taskId=batchGeneration,taskDS=ds;let i=0;toast('批量插入 0/'+vs.length+'...');
+  function nx(){batchTimer=null;if(taskId!==batchGeneration||taskDS!==ds||i>=vs.length)return;eng().insert(vs[i]);i++;si=steps.length-1;hlSet=new Set();render();updP();setB(false);locked=false;$('bN').disabled=$('bP').disabled=$('bA').disabled=$('bS').disabled=true;if(i<vs.length){toast('批量插入 '+i+'/'+vs.length+'...');batchTimer=setTimeout(nx,250)}else toast('✅ 批量插入完成 ('+vs.length+'个)','ok')}
+  nx();
+}
+function hDel(){if(locked)return;let v=$('inp').value.trim();if(!v){if(ds.includes('heap')){$('inp').value='';eng().delete();return}return}$('inp').value='';if(ds==='trie'){eng().delete(v);return}if(ds.includes('heap')){eng().delete();return}const parsed=parseIntegerTokens(v);if(parsed.invalid.length||parsed.values.length!==1){toast('请输入一个有效整数','err');ann('请输入一个有效整数');return}eng().delete(parsed.values[0])}
+function hFind(){if(locked)return;let v=$('inp').value.trim();if(!v)return;if(ds==='trie'){eng().find(v);return}const parsed=parseIntegerTokens(v);if(parsed.invalid.length||parsed.values.length!==1){toast('请输入一个有效整数','err');ann('请输入一个有效整数');return}eng().find(parsed.values[0])}
 function hRnd(){if(locked)return;if(ds==='trie'){$('inp').value='cat,car,card,care,dog';hIns();return}let used=new Set();let r=getTree();(function col(n){if(!n)return;used.add(n.k);col(n.l);col(n.r)})(r);if(ds.includes('heap'))heapA.forEach(v=>used.add(v));let vs=[],a=0;while(vs.length<5&&a<200){let v=Math.floor(Math.random()*99)+1;if(!used.has(v)){vs.push(v);used.add(v)}a++}$('inp').value=vs.join(',');hIns()}
-function hClr(){if(locked)return;eng().clr();if(ds.includes('heap'))heapA=[];steps=[];snaps=[];si=-1;hlSet=new Set();autoP=false;if(autoT)clearTimeout(autoT);$('bA').textContent='▶';setB(false);$('bN').disabled=$('bP').disabled=$('bA').disabled=$('bS').disabled=true;locked=false;render();updP();$('stC').innerHTML='<div class=\"sc\" aria-current=\"step\"><h4>🗑️ 已清空</h4><p>输入值开始。</p></div>';ann('已清空')}
+function hClr(){if(locked)return;cancelBatch();eng().clr();if(ds.includes('heap'))heapA=[];steps=[];snaps=[];si=-1;hlSet=new Set();autoP=false;if(autoT)clearTimeout(autoT);$('bA').textContent='▶';setB(false);$('bN').disabled=$('bP').disabled=$('bA').disabled=$('bS').disabled=true;locked=false;render();updP();$('stC').innerHTML='<div class="sc" aria-current="step"><h4>🗑️ 已清空</h4><p>输入值开始。</p></div>';ann('已清空')}
 
 // ===== DS Switch =====
 function clearAll(){bstR=null;avlR=null;rbtR=null;heapA=[];trieR=null;btR=null;bpR=null}
 function updDSUI(){$('bD').textContent=ds.includes('heap')?'➖ 删堆顶':'➖ 删';$('inp').placeholder=ds==='trie'?'英文单词/逗号':'整数/逗号分隔';$('infoA').innerHTML=eng().info;$('bord').style.display=(ds==='btree'||ds==='bplus')?'':'none'}
-function switchDS(){ds=$('ds').value;clearAll();steps=[];snaps=[];si=-1;hlSet=new Set();autoP=false;if(autoT)clearTimeout(autoT);$('bA').textContent='▶';setB(false);$('bN').disabled=$('bP').disabled=$('bA').disabled=$('bS').disabled=true;locked=false;render();updP();updDSUI();$('stC').innerHTML='<div class="sc" aria-current="step"><h4>🔄 已切换</h4><p>当前：'+esc(eng().name)+'</p></div>';ann('切换到 '+eng().name)}
+function switchDS(){cancelBatch();ds=$('ds').value;clearAll();steps=[];snaps=[];si=-1;hlSet=new Set();autoP=false;if(autoT)clearTimeout(autoT);$('bA').textContent='▶';setB(false);$('bN').disabled=$('bP').disabled=$('bA').disabled=$('bS').disabled=true;locked=false;render();updP();updDSUI();$('stC').innerHTML='<div class="sc" aria-current='+'"step"><h4>🔄 已切换</h4><p>当前：'+esc(eng().name)+'</p></div>';ann('切换到 '+eng().name)}
 
 // ===== Tabs =====
 function tab(i){document.querySelectorAll('[role=tab]').forEach((t,j)=>{t.setAttribute('aria-selected',j===i?'true':'false');t.tabIndex=j===i?0:-1});document.querySelectorAll('[role=tabpanel]').forEach((p,j)=>p.classList.toggle('on',j===i))}
@@ -684,18 +733,19 @@ function shareLink(){
   else{toast(url);ann('请手动复制链接')}
 }
 function loadFromURL(){
-  let params=new URLSearchParams(location.search);
-  let dv=params.get('ds');let vv=params.get('v');let ov=params.get('ord');
-  if(!dv||!vv)return;
-  // Set DS
-  $('ds').value=dv;ds=dv;
-  if(ov)btOrder=parseInt(ov);
-  clearAll();updDSUI();
-  // Insert values
-  if(dv==='trie'){vv.split(',').filter(Boolean).forEach(w=>{if(!trieR)trieR=new TrN();let n=trieR;for(let c of w.toLowerCase()){if(!n.ch[c])n.ch[c]=new TrN();n=n.ch[c]}n.end=true})}
-  else{let vals=vv.split(',').map(v=>parseInt(v)).filter(v=>!isNaN(v));for(let v of vals){eng().insert(v);si=steps.length-1;hlSet=new Set();setB(false);locked=false;$('bN').disabled=$('bP').disabled=$('bA').disabled=$('bS').disabled=true}}
-  render();updP();
-  toast('✅ 从链接恢复了 '+(dv==='trie'?'Trie':eng().name),'ok');
+  const params=new URLSearchParams(location.search),dv=params.get('ds'),vv=params.get('v'),ov=params.get('ord');
+  if(!dv||vv===null)return;
+  const supported=['bst','avl','rbt','maxheap','minheap','trie','btree','bplus'];
+  if(!supported.includes(dv)){toast('分享链接中的数据结构无效','err');return}
+  let order=3;
+  if(dv==='btree'||dv==='bplus'){if(ov!==null&&!/^[345]$/.test(ov)){toast('分享链接中的 B 树阶数无效','err');return}order=ov===null?3:Number(ov)}
+  let words=[],values=[];
+  if(dv==='trie'){words=vv.split(',').filter(Boolean);if(words.some(w=>w.length>80||/[^a-zA-Z]/.test(w))){toast('分享链接包含无效的 Trie 单词','err');return}}
+  else if(vv){const parsed=parseIntegerTokens(vv);if(parsed.invalid.length){toast('分享链接包含无效整数，未恢复数据','err');return}values=parsed.values}
+  cancelBatch();$('ds').value=dv;ds=dv;btOrder=order;$('bord').value=String(order);clearAll();updDSUI();
+  if(dv==='trie'){for(const w of words){if(!trieR)trieR=new TrN();let n=trieR;for(const c of w.toLowerCase()){if(!n.ch[c])n.ch[c]=new TrN();n=n.ch[c]}n.end=true}}
+  else{for(const v of values){eng().insert(v);si=steps.length-1;hlSet=new Set();setB(false);locked=false;$('bN').disabled=$('bP').disabled=$('bA').disabled=$('bS').disabled=true}}
+  render();updP();toast('✅ 从链接恢复了 '+(dv==='trie'?'Trie':eng().name),'ok');
 }
 
 // ===== Events =====
