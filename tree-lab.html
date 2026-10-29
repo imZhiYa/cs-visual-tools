@@ -432,16 +432,19 @@ function layoutBin(r,cw){if(!r)return;let rm=[];
   function ao(n){if(!n)return;n.tx+=off;if(!n.x&&!n.y){n.x=n.tx;n.y=n.ty}ao(n.l);ao(n.r)}
   ao(r)}
 
-function layoutMulti(r,cw){if(!r)return;let xPos=0;
-  function lay(n,d){n.ty=50+d*LH;if(!n._ch||!n._ch.length){n.tx=xPos;xPos+=HS;return}for(let c of n._ch)lay(c,d+1);n.tx=(n._ch[0].tx+n._ch[n._ch.length-1].tx)/2}
+function layoutMulti(r,cw){if(!r)return;let xPos=0,leafStep=multiMaxWidth(r)+24;
+  function lay(n,d){n.ty=50+d*LH;if(!n._ch||!n._ch.length){n.tx=xPos+multiNodeWidth(n)/2;xPos+=leafStep;return}for(let c of n._ch)lay(c,d+1);n.tx=(n._ch[0].tx+n._ch[n._ch.length-1].tx)/2}
   lay(r,0);let mn=1e9,mx=-1e9;
-  function bd(n){if(!n)return;mn=Math.min(mn,n.tx);mx=Math.max(mx,n.tx);if(n._ch)n._ch.forEach(bd)}
+  function bd(n){if(!n)return;mn=Math.min(mn,n.tx-multiNodeWidth(n)/2);mx=Math.max(mx,n.tx+multiNodeWidth(n)/2);if(n._ch)n._ch.forEach(bd)}
   bd(r);let off=(cw-(mx-mn))/2-mn;
   function ao(n){if(!n)return;n.tx+=off;if(!n.x&&!n.y){n.x=n.tx;n.y=n.ty}if(n._ch)n._ch.forEach(ao)}
   ao(r)}
 
 // ===== Render =====
-function resizeCv(r){let p=$('cw'),w=p.clientWidth,h=p.clientHeight;let nc=r?cntAll(r):0,th=r?htAll(r):0;let nw=Math.max(w,nc*48+120),nh=Math.max(h,th*LH+(showNil?LH:0)+100);cv.width=nw*devicePixelRatio;cv.height=nh*devicePixelRatio;cv.style.width=nw+'px';cv.style.height=nh+'px';cx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0)}
+function multiNodeWidth(n){if(n&&n.keys&&n.keys.length)return(n.keys.length*22+(n.keys.length+1)*8+12);return NR*2}
+function multiMaxWidth(n){if(!n)return NR*2;let w=multiNodeWidth(n);if(n._ch)for(let c of n._ch)w=Math.max(w,multiMaxWidth(c));return w}
+function multiLeafCount(n){if(!n)return 0;if(!n._ch||!n._ch.length)return 1;return n._ch.reduce((sum,c)=>sum+multiLeafCount(c),0)}
+function resizeCv(r){let p=$('cw'),w=p.clientWidth,h=p.clientHeight;let nc=r?cntAll(r):0,th=r?htAll(r):0;let nw=Math.max(w,r&&r._ch?multiLeafCount(r)*(multiMaxWidth(r)+24)+120:nc*48+120),nh=Math.max(h,th*LH+(showNil?LH:0)+100);cv.width=nw*devicePixelRatio;cv.height=nh*devicePixelRatio;cv.style.width=nw+'px';cv.style.height=nh+'px';cx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0)}
 function cntAll(n){if(!n)return 0;if(n._ch)return 1+n._ch.reduce((a,c)=>a+cntAll(c),0);return 1+cntAll(n.l)+cntAll(n.r)}
 function htAll(n){if(!n)return 0;if(n._ch)return 1+Math.max(0,...n._ch.map(htAll));return 1+Math.max(htAll(n.l),htAll(n.r))}
 
