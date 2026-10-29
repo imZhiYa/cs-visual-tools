@@ -639,9 +639,14 @@ const FIELDS=[
 let stepIdx=-1, curPipe=[], pred1=null;
 
 function parseVA(){
-  let s=va.value.trim().replace(/^0x/i,'').replace(/[^0-9a-fA-F]/g,'')||'0';
-  let v; try{v=BigInt('0x'+s);}catch(e){v=0n;}
-  return v & ((1n<<48n)-1n);
+  let raw=va.value.trim();
+  let s=raw.replace(/^0x/i,'');
+  if(!/^[0-9a-fA-F]{1,16}$/.test(s)){
+    va.setCustomValidity('请输入 1–16 位十六进制地址，可带 0x 前缀；不要输入其他字符。');
+    return null;
+  }
+  va.setCustomValidity('');
+  return BigInt('0x'+s) & ((1n<<48n)-1n);
 }
 function fields(v){
   return [Number((v>>39n)&0x1ffn),Number((v>>30n)&0x1ffn),Number((v>>21n)&0x1ffn),Number((v>>12n)&0x1ffn),Number(v&0xfffn)];
@@ -650,7 +655,12 @@ function fields(v){
 function derivePFN(v){ return ((v>>12n) * 2654435761n) & 0xfffffn; }
 
 function renderVA(){
-  const v=parseVA(), p=fields(v);
+  const v=parseVA();
+  if(v===null){
+    vaParts.innerHTML='<div class="empty">地址格式无效：请输入十六进制字符（可带 0x 前缀）。</div>';
+    return;
+  }
+  const p=fields(v);
   vaParts.innerHTML=FIELDS.map((f,i)=>`
     <div class="va-part" data-i="${i}">
       <div class="t">${f.name}</div>
@@ -658,7 +668,12 @@ function renderVA(){
     </div>`).join('');
 }
 function buildPipeline(){
-  const v=parseVA(), p=fields(v);
+  const v=parseVA();
+  if(v===null){
+    if(typeof toast==='function') toast('虚拟地址格式无效，请检查输入','err');
+    return [];
+  }
+  const p=fields(v);
   const warm=document.getElementById('tlbWarm').checked;
   const pfn=derivePFN(v);
   const offset=p[4];
@@ -950,7 +965,19 @@ function initSim(){
     fifoQ:[], clockHand:0, clockRef:{}, lruTime:{}, lastEvt:null}; });
 }
 function parseSeq(){
-  return document.getElementById('seqInput').value.trim().split(/[\s,]+/).map(x=>parseInt(x)).filter(x=>!isNaN(x)).slice(0,20);
+  const raw=document.getElementById('seqInput').value.trim();
+  if(!raw)return [];
+  const tokens=raw.split(/[\s,]+/);
+  if(tokens.length>20||tokens.some(x=>!/^\d+$/.test(x))){
+    if(typeof toast==='function') toast('访问序列需为 1–20 个非负整数页号，请检查逗号或空格分隔','err');
+    return [];
+  }
+  const values=tokens.map(Number);
+  if(values.some(x=>!Number.isSafeInteger(x))){
+    if(typeof toast==='function') toast('页号超出安全整数范围','err');
+    return [];
+  }
+  return values;
 }
 function resetLab4(keepSeq){
   startAnim('algo');
