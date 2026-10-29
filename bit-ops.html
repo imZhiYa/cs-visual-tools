@@ -522,7 +522,7 @@
                         <span class="badge badge-purple">原理层 / 算能大一统</span>
                     </div>
                     <p style="color: var(--text-secondary); font-size: var(--text-base); margin-bottom: 0.8rem;">
-                        在 CPU 芯片内部，<strong>没有真正的减法硬件门电路，只有全加器 (Full Adder)</strong>！补码应运而生：正数不变，负数为<code>除符号位外取反末位加 1</code> (2ⁿ - |x|)。
+                        在常见的二进制算术电路中，减法可以转化为加法：固定为 n 位时，负数的补码等于对应正数按位取反后再加 1（包括最高位），也就是 2ⁿ - |x|。具体硬件实现会因处理器和电路设计而异。
                     </p>
 
                     <div style="margin: 1rem 0; text-align: center;">
