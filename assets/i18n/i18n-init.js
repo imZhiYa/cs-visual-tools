@@ -60,7 +60,7 @@
       '锁升级=Lock Escalation',
       '根节点=Root Node',
       '叶=Leaf'
-    ].join('\\n')
+    ].join('\n')
   );
 
   // Start watching dynamic DOM updates before the first translation pass.
