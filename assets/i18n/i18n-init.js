@@ -67,10 +67,13 @@
   translate.service.use('client.edge');
   translate.listener.start();
   translate.execute();
+  requestAnimationFrame(function () {
+    window.dispatchEvent(new Event('resize'));
+  });
 
   const selector = document.getElementById('languageSelect');
   if (selector) {
-    selector.value = detectBrowserLanguage();
+    selector.value = translate.language.getCurrent();
     selector.addEventListener('change', function () {
       translate.changeLanguage(this.value);
       // Canvas labels are drawn pixels and must be redrawn after language changes.
