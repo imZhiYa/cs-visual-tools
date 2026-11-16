@@ -38,6 +38,7 @@ input[type=text]{width:140px}
 .bd{background:#7a2020;border-color:#7a2020;color:#fff}.bd:hover:not(:disabled){background:var(--rd)}
 .bg{background:#1a5c2a;border-color:#1a5c2a;color:#fff}.bg:hover:not(:disabled){background:var(--gn);color:#000}
 .sep{width:1px;height:18px;background:var(--bd);flex-shrink:0}
+.lang-select{min-width:112px;padding:5px 7px;border:1px solid var(--bd);border-radius:var(--r);background:var(--sf2);color:var(--tx);font-size:var(--fs-sm)}
 .spd{display:flex;align-items:center;gap:4px;margin-left:auto;font-size:var(--fs-sm);color:var(--tx2)}
 .spd input[type=range]{width:55px;accent-color:var(--ac)}
 
@@ -116,6 +117,13 @@ kbd{background:rgba(255,255,255,.06);padding:0 3px;border-radius:2px;font-family
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <header role="banner">
   <h1>🌳 树结构实验室</h1>
+  <label class="sr" for="languageSelect">Language</label>
+  <select id="languageSelect" class="lang-select" aria-label="Language">
+    <option value="chinese_simplified">简体中文</option>
+    <option value="english">English</option>
+    <option value="japanese">日本語</option>
+    <option value="korean">한국어</option>
+  </select>
   <label class="sr" for="ds">数据结构</label>
   <select id="ds" aria-label="选择数据结构">
     <option value="bst">BST 二叉搜索树</option>
@@ -462,7 +470,7 @@ function anim(r){if(af)cancelAnimationFrame(af);
   function fr(){let d=r?upd(r):true;draw(r);if(!d)af=requestAnimationFrame(fr);else if(animDoneCb){let cb=animDoneCb;animDoneCb=null;cb()}}fr()}
 
 function draw(r){let W=cv.width/devicePixelRatio,H=cv.height/devicePixelRatio;cx.clearRect(0,0,W,H);
-  if(!r){cx.fillStyle='#444';cx.font='13px sans-serif';cx.textAlign='center';cx.fillText('选择数据结构，输入值开始',W/2,H/2);return}
+  if(!r){cx.fillStyle='#444';cx.font='13px sans-serif';cx.textAlign='center';cx.fillText(CanvasI18n.text('empty'),W/2,H/2);return}
   if(r._ch){drawMulti(r);if(ds==='bplus')drawBPLeafLinks()}else{drawE(r);drawN(r,r)}}
 function drawBPLeafLinks(){if(!dispR)return;let leaves=[];
   // Use the rendered tree, not the live bpR model: history replay renders a snapshot.
@@ -551,7 +559,7 @@ function drawMulti(n){if(!n)return;
       }
     }
     // Labels
-    if(ds==='bplus'&&isEnd){cx.fillStyle='#3fb950';cx.font=Math.round(6*n.sc)+'px sans-serif';cx.textAlign='center';cx.fillText('叶',n.x,n.y+th/2+8*n.sc)}
+    if(ds==='bplus'&&isEnd){cx.fillStyle='#3fb950';cx.font=Math.round(6*n.sc)+'px sans-serif';cx.textAlign='center';cx.fillText(CanvasI18n.text('leaf'),n.x,n.y+th/2+8*n.sc)}
     if(ds==='btree'&&!n._ch.length){cx.fillStyle='#6e7681';cx.font=Math.round(6*n.sc)+'px sans-serif';cx.textAlign='center';cx.fillText('叶',n.x,n.y+th/2+8*n.sc)}
   }else{
     // Circle for Trie
@@ -793,5 +801,8 @@ switchDS();
 try{loadFromURL()}catch(e){}
 })();
 </script>
+<script src="./assets/vendor/translate/translate.js"></script>
+<script src="./assets/i18n/canvas-i18n.js"></script>
+<script src="./assets/i18n/i18n-init.js"></script>
 </body>
 </html>
