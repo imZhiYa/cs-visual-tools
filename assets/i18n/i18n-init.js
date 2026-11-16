@@ -34,6 +34,7 @@
   // Keep the pilot intentionally small; expand after translation QA.
   translate.selectLanguageTag.languages =
     'chinese_simplified,english,japanese,korean';
+  translate.selectLanguageTag.show = false;
 
   // Never translate code samples or keyboard instructions.
   ['code', 'pre', 'kbd', 'script', 'style'].forEach(function (tag) {
@@ -66,4 +67,16 @@
   translate.service.use('client.edge');
   translate.listener.start();
   translate.execute();
+
+  const selector = document.getElementById('languageSelect');
+  if (selector) {
+    selector.value = detectBrowserLanguage();
+    selector.addEventListener('change', function () {
+      translate.changeLanguage(this.value);
+      // Canvas labels are drawn pixels and must be redrawn after language changes.
+      requestAnimationFrame(function () {
+        window.dispatchEvent(new Event('resize'));
+      });
+    });
+  }
 })();
